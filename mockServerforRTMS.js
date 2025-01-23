@@ -296,8 +296,7 @@ function handleSessionStateRequest(ws, message) {
 // Setup media WebSocket server
 function setupMediaWebSocketServer(wss) {
     wss.on("connection", (ws, req) => {
-        // Allow direct media server connections
-        console.log("New media server connection accepted");
+        console.log("New media server connection accepted", req.url);
 
         const path = req.url.replace("/", ""); // Extract channel name
         const validChannels = ["audio", "video", "transcript", "all"];
@@ -308,33 +307,42 @@ function setupMediaWebSocketServer(wss) {
             return;
         }
 
+        // Store path in ws object for later use
+        ws.channelPath = path;
+        console.log(`Client connected to channel: ${path}`);
+
         ws.on("message", (data) => {
             try {
+                console.log('Raw message received:', data.toString());
                 const message = JSON.parse(data);
-                console.log("Received message on path:", path);
-                console.log("Message content:", message);
-                console.log(
-                    "Current client sessions:",
-                    Array.from(clientSessions.keys()).length,
-                );
+                console.log(`Received ${message.msg_type} on channel:`, path);
 
-                if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
-                    console.log("Processing DATA_HAND_SHAKE_REQ");
-                    handleDataHandshake(ws, message, path);
-                } else if (message.msg_type === "KEEP_ALIVE_REQ") {
-                    ws.send(JSON.stringify({
-                        msg_type: "KEEP_ALIVE_RESP",
-                        sequence: message.sequence,
-                        timestamp: Date.now()
-                    }));
-                } else if (message.msg_type === "EVENT_SUBSCRIPTION") {
-                    handleEventSubscription(ws, message);
-                } else {
-                    console.error("Unknown message type:", message.msg_type);
+                switch(message.msg_type) {
+                    case "DATA_HAND_SHAKE_REQ":
+                        console.log("Processing DATA_HAND_SHAKE_REQ for channel:", path);
+                        handleDataHandshake(ws, message, path);
+                        break;
+                    case "KEEP_ALIVE_REQ":
+                        console.log("Received keepalive request");
+                        ws.send(JSON.stringify({
+                            msg_type: "KEEP_ALIVE_RESP",
+                            sequence: message.sequence,
+                            timestamp: Date.now()
+                        }));
+                        break;
+                    case "EVENT_SUBSCRIPTION":
+                        console.log("Processing event subscription");
+                        handleEventSubscription(ws, message);
+                        break;
+                    default:
+                        console.log("Unknown message type:", message.msg_type);
                 }
+
+                console.log("Active sessions:", Array.from(clientSessions.keys()).length);
             } catch (error) {
                 console.error("Error processing message:", error.message);
                 console.error("Stack trace:", error.stack);
+                console.error("Raw message:", data.toString());
             }
         });
 
