@@ -6,6 +6,7 @@ channel = "stable-24_05"
 
 [deployment]
 run = ["sh", "-c", "node mockServerforRTMS.js"]
+deploymentTarget = "cloudrun"
 
 [[ports]]
 localPort = 9092
