@@ -483,9 +483,9 @@ function streamAudio(ws, audioFile) {
             
             ws.send(JSON.stringify({
                 msg_type: "MEDIA_DATA_AUDIO",
-                media_type: MEDIA_DATA_TYPE.AUDIO,
                 content: {
                     user_id: 0,
+                    media_type: "AUDIO",
                     data: chunk.toString('base64'),
                     timestamp: Date.now(),
                     sequence: chunkIndex
@@ -521,9 +521,9 @@ function streamVideo(ws, videoFile) {
 
                 ws.send(JSON.stringify({
                     msg_type: "MEDIA_DATA_VIDEO",
-                    media_type: MEDIA_DATA_TYPE.VIDEO,
                     content: {
                         user_id: 0,
+                        media_type: "VIDEO",
                         data: chunk.toString('base64'),
                         timestamp: Date.now(),
                         sequence: chunkIndex,
