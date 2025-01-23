@@ -320,8 +320,8 @@ function handleSignalingHandshake(ws, message) {
     });
 
     // Use the Replit domain WITHOUT port for WebSocket connections
-    const mediaHost = process.env.REPL_SLUG
-        ? `${process.env.REPL_SLUG}.replit.dev`
+    const mediaHost = process.env.REPL_ID 
+        ? `${process.env.REPL_SLUG}-${process.env.OWNER}-${process.env.REPL_SLUG}.${process.env.REPL_SLUG}.repl.co`
         : `localhost:${HTTP_PORT}`;
 
     const response = {
