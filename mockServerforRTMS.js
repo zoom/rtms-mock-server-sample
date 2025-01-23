@@ -151,19 +151,11 @@ function startMediaServer() {
     if (!mediaServer) {
         mediaServer = new WebSocket.Server(
             {
-                port: MEDIA_STREAM_PORT,
-                host: "0.0.0.0",
-                noServer: true,
+                server: server,
                 clientTracking: true,
             },
-            (error) => {
-                if (error) {
-                    console.error("Failed to start media WSS server:", error);
-                    return;
-                }
-                console.log(
-                    `Media WSS server is running on port ${MEDIA_STREAM_PORT}`,
-                );
+            () => {
+                console.log("Media WSS server is running");
                 setupMediaWebSocketServer(mediaServer);
             },
         );
