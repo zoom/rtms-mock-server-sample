@@ -28,6 +28,17 @@ let mediaServer = null;
 let mediaWebSocketServer;
 let isHandshakeServerActive = false;
 
+// Add HTTP server routes
+app.get('/', (req, res) => {
+    res.send('RTMS Server is running');
+});
+
+// Start HTTP server
+const HTTP_PORT = 3000;
+app.listen(HTTP_PORT, '0.0.0.0', () => {
+    console.log(`HTTP server running on port ${HTTP_PORT}`);
+});
+
 // Keep track of sessions and client connections
 const clientSessions = new Map();
 const KEEP_ALIVE_INTERVAL = 5000;
