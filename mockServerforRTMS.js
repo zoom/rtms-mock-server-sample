@@ -59,8 +59,8 @@ app.get("/", (req, res) => {
 
 // Start HTTP server
 const HTTP_PORT = 3000;
-app.listen(HTTP_PORT, "0.0.0.0", () => {
-    console.log(`HTTP server running on port ${HTTP_PORT}`);
+server.listen(HTTP_PORT, "0.0.0.0", () => {
+    console.log(`HTTP/WebSocket server running on port ${HTTP_PORT}`);
 });
 
 // Keep track of sessions and client connections
@@ -275,7 +275,7 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    const mediaHost = process.env.MEDIA_HOST || `0.0.0.0:${MEDIA_STREAM_PORT}`;
+    const mediaHost = process.env.MEDIA_HOST || `${req.headers.host}`;
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
         protocol_version: 1,
