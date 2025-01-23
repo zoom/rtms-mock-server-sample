@@ -141,10 +141,7 @@ function startMediaServer() {
 }
 
 // Only start handshake server initially
-const wss = new WebSocket.Server({
-    host: "https://mock-rtm-sserver-ojas931992.replit.app",
-    port: 9092,
-});
+const wss = new WebSocket.Server({ host: "0.0.0.0", port: 9092 });
 
 wss.on("connection", (ws) => {
     console.log("New handshake connection established");
