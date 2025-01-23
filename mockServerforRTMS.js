@@ -125,20 +125,19 @@ function startMediaServer() {
     }
 
     if (!mediaServer) {
-        mediaServer = new WebSocket.Server({
-            port: 8081,
-            host: "0.0.0.0",
-            path: "/all"
-        }, (error) => {
-            if (error) {
-                console.error("Failed to start media WSS server:", error);
-                return;
-            }
-            console.log(
-                `Media WSS server is running on port ${MEDIA_STREAM_PORT} with path /all`,
-            );
-            setupMediaWebSocketServer(mediaServer);
-        });
+        mediaServer = new WebSocket.Server(
+            { host: "0.0.0.0", port: 8081 },
+            (error) => {
+                if (error) {
+                    console.error("Failed to start media WSS server:", error);
+                    return;
+                }
+                console.log(
+                    `Media WSS server is running on port ${MEDIA_STREAM_PORT}`,
+                );
+                setupMediaWebSocketServer(mediaServer);
+            },
+        );
 
         mediaServer.on("error", (error) => {
             console.error("Media WSS server error:", error);
@@ -251,7 +250,10 @@ function handleSignalingHandshake(ws, message) {
             status_code: "STATUS_OK",
             media_server: {
                 server_urls: {
-                    all: `wss://mock-rtm-sserver-ojas931992.replit.app:8081/all`,
+                    audio: `wss://mock-rtm-sserver-ojas931992.replit.app/audio`,
+                    video: `wss://mock-rtm-sserver-ojas931992.replit.app/video`,
+                    transcript: `wss://mock-rtm-sserver-ojas931992.replit.app/transcript`,
+                    all: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
                 },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
