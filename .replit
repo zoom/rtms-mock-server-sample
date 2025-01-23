@@ -9,5 +9,9 @@ run = ["sh", "-c", "node mockServerforRTMS.js"]
 deploymentTarget = "cloudrun"
 
 [[ports]]
+localPort = 3000
+externalPort = 3000
+
+[[ports]]
 localPort = 9092
 externalPort = 80
