@@ -255,10 +255,10 @@ function handleSignalingHandshake(ws, message) {
             status_code: "STATUS_OK",
             media_server: {
                 server_urls: {
-                    audio: `wss://${req.headers.host}/audio`,
-                    video: `wss://${req.headers.host}/video`, 
-                    transcript: `wss://${req.headers.host}/transcript`,
-                    all: `wss://${req.headers.host}/all`,
+                    audio: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/audio`,
+                    video: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/video`,
+                    transcript: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/transcript`,
+                    all: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/all`,
                 },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
