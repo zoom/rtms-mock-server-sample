@@ -287,7 +287,9 @@ function handleSignalingHandshake(ws, message) {
                 share: crypto.randomBytes(32).toString("hex")
             }
         }
-    });
+    };
+    ws.send(JSON.stringify(response));
+}
 }
 
 // Handle event subscription
