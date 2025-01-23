@@ -250,10 +250,10 @@ function handleSignalingHandshake(ws, message) {
             status_code: "STATUS_OK",
             media_server: {
                 server_urls: {
-                    audio: `wss://mock-rtm-sserver-ojas931992.replit.app/audio`,
-                    video: `wss://mock-rtm-sserver-ojas931992.replit.app/video`,
-                    transcript: `wss://mock-rtm-sserver-ojas931992.replit.app/transcript`,
-                    all: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
+                    audio: `wss://mock-rtm-sserver-ojas931992.replit.app:8081/audio`,
+                    video: `wss://mock-rtm-sserver-ojas931992.replit.app:8081/video`,
+                    transcript: `wss://mock-rtm-sserver-ojas931992.replit.app:8081/transcript`,
+                    all: `wss://mock-rtm-sserver-ojas931992.replit.app:8081/all`,
                 },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
@@ -380,6 +380,12 @@ function startMediaStreams(ws, channel) {
     const audioFile = path.join(PCM_DIR, "audio1241999856.pcm");
     const videoFile = path.join(PCM_DIR, "video1241999856.dfpwm");
     const transcriptFile = path.join(PCM_DIR, "audio1241999856.txt");
+
+    console.log("Checking media files:");
+    console.log("Audio file exists:", fs.existsSync(audioFile));
+    console.log("Video file exists:", fs.existsSync(videoFile));
+    console.log("Transcript file exists:", fs.existsSync(transcriptFile));
+    console.log("PCM_DIR contents:", fs.readdirSync(PCM_DIR));
 
     if (!streamStartTime) {
         streamStartTime = Date.now();
