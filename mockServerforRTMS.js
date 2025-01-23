@@ -111,7 +111,7 @@ function startMediaServer() {
     }
 
     if (!mediaServer) {
-        mediaServer = new WebSocket.Server({ port: 8081 }, (error) => {
+        mediaServer = new WebSocket.Server({ host: '0.0.0.0', port: 8081 }, (error) => {
             if (error) {
                 console.error('Failed to start media WSS server:', error);
                 return;
@@ -133,7 +133,7 @@ function startMediaServer() {
 }
 
 // Only start handshake server initially
-const wss = new WebSocket.Server({ port: 9092 });
+const wss = new WebSocket.Server({ host: '0.0.0.0', port: 9092 });
 
 wss.on('connection', (ws) => {
     console.log('New handshake connection established');
