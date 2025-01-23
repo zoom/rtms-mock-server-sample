@@ -288,25 +288,8 @@ function handleSessionStateRequest(ws, message) {
 // Setup media WebSocket server
 function setupMediaWebSocketServer(wss) {
     wss.on("connection", (ws, req) => {
-        if (!isHandshakeServerActive) {
-            console.error(
-                "Handshake server is not active. Closing media connection.",
-            );
-            ws.send(
-                JSON.stringify({
-                    msg_type: "STREAM_STATE_UPDATE",
-                    state: "TERMINATED",
-                    reason: "STOP_BC_CONNECTION_INTERRUPTED",
-                    timestamp: Date.now(),
-                }),
-            );
-            ws.close(1008, "Handshake server is not active");
-            return;
-        }
-
-        console.log(
-            `New WebSocket connection on media server (path: ${req.url})`,
-        );
+        // Allow direct media server connections
+        console.log("New media server connection accepted");
 
         const path = req.url.replace("/", ""); // Extract channel name
         const validChannels = ["audio", "video", "transcript", "all"];
