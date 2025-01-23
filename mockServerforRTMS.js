@@ -279,15 +279,15 @@ function handleSignalingHandshake(ws, message) {
                 audio: `wss://${mediaHost}/audio`,
                 video: `wss://${mediaHost}/video`,
                 transcript: `wss://${mediaHost}/transcript`,
-                all: `wss://${mediaHost}/all`,
+                all: `wss://${mediaHost}/all`
             },
-                srtp_keys: {
-                    audio: crypto.randomBytes(32).toString("hex"),
-                    video: crypto.randomBytes(32).toString("hex"),
-                    share: crypto.randomBytes(32).toString("hex"),
-                },
-            },
-        }),
+            srtp_keys: {
+                audio: crypto.randomBytes(32).toString("hex"),
+                video: crypto.randomBytes(32).toString("hex"),
+                share: crypto.randomBytes(32).toString("hex")
+            }
+        }
+    });
     );
 }
 
