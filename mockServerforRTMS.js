@@ -471,6 +471,8 @@ function streamAudio(ws, audioFile) {
     let chunkIndex = 0;
     const totalChunks = Math.ceil(chunks.length / chunkSize);
 
+    // Send stream state update
+    sendStreamStateUpdate(ws, "ACTIVE");
     console.log(`Total audio chunks: ${totalChunks}`);
 
     const intervalId = setInterval(() => {
@@ -481,6 +483,7 @@ function streamAudio(ws, audioFile) {
             
             ws.send(JSON.stringify({
                 msg_type: "MEDIA_DATA_AUDIO",
+                media_type: MEDIA_DATA_TYPE.AUDIO,
                 content: {
                     user_id: 0,
                     data: chunk.toString('base64'),
@@ -518,6 +521,7 @@ function streamVideo(ws, videoFile) {
 
                 ws.send(JSON.stringify({
                     msg_type: "MEDIA_DATA_VIDEO",
+                    media_type: MEDIA_DATA_TYPE.VIDEO,
                     content: {
                         user_id: 0,
                         data: chunk.toString('base64'),
