@@ -71,6 +71,11 @@ server.on("upgrade", (request, socket, head) => {
             console.log("No media server available, closing connection");
             socket.destroy();
         }
+    } else if (request.url === "/" || request.url === "") {
+        // Treat root path as signaling
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit("connection", ws, request);
+        });
     } else {
         console.log("Invalid WebSocket path:", request.url);
         socket.destroy();
