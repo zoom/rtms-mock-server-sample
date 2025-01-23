@@ -1,0 +1,120 @@
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+Error processing message: TypeError: One and only one of the "port", "server", or "noServer" options must be specified
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at new WebSocketServer (/home/runner/workspace/node_modules/ws/lib/websocket-server.js:86:13)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at startMediaServer (/home/runner/workspace/mockServerforRTMS.js:152:23)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at WebSocket. (/home/runner/workspace/mockServerforRTMS.js:219:17)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at WebSocket.emit (node:events:518:28)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at Receiver.receiverOnMessage (/home/runner/workspace/node_modules/ws/lib/websocket.js:1220:20)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at Receiver.emit (node:events:518:28)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at Receiver.dataMessage (/home/runner/workspace/node_modules/ws/lib/receiver.js:596:14)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at Receiver.getData (/home/runner/workspace/node_modules/ws/lib/receiver.js:496:10)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at Receiver.startLoop (/home/runner/workspace/node_modules/ws/lib/receiver.js:167:16)
+2025-01-23 11:11:39.95
+71ce0eb3
+User
+at Receiver._write (/home/runner/workspace/node_modules/ws/lib/receiver.js:94:10)
+
+Wrap
+
+Colors
+    MEDIA_DATA_AUDIO: "MEDIA_DATA_AUDIO",
+    MEDIA_DATA_VIDEO: "MEDIA_DATA_VIDEO",
+    MEDIA_DATA_SHARE: "MEDIA_DATA_SHARE",
+    MEDIA_DATA_CHAT: "MEDIA_DATA_CHAT",
+    MEDIA_DATA_TRANSCRIPT: "MEDIA_DATA_TRANSCRIPT",
+};
+
+// Event Types
+const RTMS_EVENT_TYPE = {
+    ACTIVE_SPEAKER_CHANGE: "ACTIVE_SPEAKER_CHANGE",
+    PARTICIPANT_JOIN: "PARTICIPANT_JOIN",
+    PARTICIPANT_LEAVE: "PARTICIPANT_LEAVE",
+};
+
+// Session States
+const RTMS_SESSION_STATE = {
+    INACTIVE: "INACTIVE",
+    INITIALIZE: "INITIALIZE",
+    STARTED: "STARTED",
+    PAUSED: "PAUSED",
+    RESUMED: "RESUMED",
+    STOPPED: "STOPPED",
+};
+
+// Stream States
+const RTMS_STREAM_STATE = {
+    INACTIVE: "INACTIVE",
+    ACTIVE: "ACTIVE",
+    TERMINATED: "TERMINATED",
+    INTERRUPTED: "INTERRUPTED",
+};
+
+// Media Types
+const MEDIA_DATA_TYPE = {
+    AUDIO: 1,
+    VIDEO: 2,
+    DESKSHARE: 3,
+    TRANSCRIPT: 4,
+    CHAT: 5,
+    ALL: 6,
+};
+
+// Media Content Types
+const MEDIA_CONTENT_TYPE = {
+    RTP: 1,
+    RAW_AUDIO: 2,
+    RAW_VIDEO: 3,
+    FILE_STREAM: 4,
+    TEXT: 5,
+};
+
+// Default Media Parameters
+const DEFAULT_AUDIO_PARAMS = {
+    content_type: MEDIA_CONTENT_TYPE.RAW_AUDIO,
+    sample_rate: "SR_16K",
+    channel: "MONO",
+    codec: "L16",
+    data_opt: "AUDIO_MIXED_STREAM",
+    send_interval: 20,
+};
+
+const DEFAULT_VIDEO_PARAMS = {
+    content_type: MEDIA_CONTENT_TYPE.RAW_VIDEO,
+    codec: "JPG",
+    resolution: "HD",
+    fps: 5,
+};
+
+/
+
+/
+
