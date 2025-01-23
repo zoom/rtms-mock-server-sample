@@ -126,9 +126,10 @@ function startMediaServer() {
 
     if (!mediaServer) {
         mediaServer = new WebSocket.Server({
-            port: 8081,
+            port: HTTP_PORT,
             host: "0.0.0.0",
-            path: "/all"
+            path: "/all",
+            clientTracking: true
         }, (error) => {
             if (error) {
                 console.error("Failed to start media WSS server:", error);
@@ -251,7 +252,10 @@ function handleSignalingHandshake(ws, message) {
             status_code: "STATUS_OK",
             media_server: {
                 server_urls: {
-                    all: `wss://mock-rtm-sserver-ojas931992.replit.app:8081/all`,
+                    audio: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
+                    video: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
+                    transcript: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
+                    all: `wss://mock-rtm-sserver-ojas931992.replit.app/all`
                 },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
