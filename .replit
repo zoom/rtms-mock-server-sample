@@ -1,0 +1,12 @@
+modules = ["nodejs-20"]
+run = "node mockServerforRTMS.js"
+
+[nix]
+channel = "stable-24_05"
+
+[deployment]
+run = ["sh", "-c", "node mockServerforRTMS.js"]
+
+[[ports]]
+localPort = 9092
+externalPort = 80
