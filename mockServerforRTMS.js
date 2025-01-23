@@ -29,13 +29,13 @@ let mediaWebSocketServer;
 let isHandshakeServerActive = false;
 
 // Add HTTP server routes
-app.get('/', (req, res) => {
-    res.send('RTMS Server is running');
+app.get("/", (req, res) => {
+    res.send("RTMS Server is running");
 });
 
 // Start HTTP server
 const HTTP_PORT = 3000;
-app.listen(HTTP_PORT, '0.0.0.0', () => {
+app.listen(HTTP_PORT, "0.0.0.0", () => {
     console.log(`HTTP server running on port ${HTTP_PORT}`);
 });
 
@@ -125,21 +125,24 @@ function startMediaServer() {
     }
 
     if (!mediaServer) {
-        mediaServer = new WebSocket.Server({
-            port: HTTP_PORT,
-            host: "0.0.0.0",
-            path: "/all",
-            clientTracking: true
-        }, (error) => {
-            if (error) {
-                console.error("Failed to start media WSS server:", error);
-                return;
-            }
-            console.log(
-                `Media WSS server is running on port ${MEDIA_STREAM_PORT} with path /all`,
-            );
-            setupMediaWebSocketServer(mediaServer);
-        });
+        mediaServer = new WebSocket.Server(
+            {
+                port: HTTP_PORT,
+                host: "0.0.0.0",
+                path: "/all",
+                clientTracking: true,
+            },
+            (error) => {
+                if (error) {
+                    console.error("Failed to start media WSS server:", error);
+                    return;
+                }
+                console.log(
+                    `Media WSS server is running on port ${MEDIA_STREAM_PORT} with path /all`,
+                );
+                setupMediaWebSocketServer(mediaServer);
+            },
+        );
 
         mediaServer.on("error", (error) => {
             console.error("Media WSS server error:", error);
@@ -252,10 +255,10 @@ function handleSignalingHandshake(ws, message) {
             status_code: "STATUS_OK",
             media_server: {
                 server_urls: {
-                    audio: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
-                    video: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
-                    transcript: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
-                    all: `wss://mock-rtm-sserver-ojas931992.replit.app/all`
+                    audio: `wss://mock-rtm-sserver-ojas931992.replit.app/audio`,
+                    video: `wss://mock-rtm-sserver-ojas931992.replit.app/video`,
+                    transcript: `wss://mock-rtm-sserver-ojas931992.replit.app/transcript`,
+                    all: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
                 },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
@@ -307,7 +310,10 @@ function setupMediaWebSocketServer(wss) {
                 const message = JSON.parse(data);
                 console.log("Received message on path:", path);
                 console.log("Message content:", message);
-                console.log("Current client sessions:", Array.from(clientSessions.keys()).length);
+                console.log(
+                    "Current client sessions:",
+                    Array.from(clientSessions.keys()).length,
+                );
 
                 if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
                     console.log("Processing DATA_HAND_SHAKE_REQ");
@@ -483,22 +489,22 @@ function streamAudio(ws, audioFile) {
             const start = chunkIndex * chunkSize;
             const end = Math.min(start + chunkSize, chunks.length);
             const chunk = chunks.slice(start, end);
-            
+
             const message = JSON.stringify({
                 msg_type: "MEDIA_DATA",
                 content: {
                     user_id: 0,
                     media_type: "AUDIO",
-                    data: chunk.toString('base64'),
+                    data: chunk.toString("base64"),
                     timestamp: Date.now(),
-                    sequence: chunkIndex
-                }
+                    sequence: chunkIndex,
+                },
             });
             console.log(`Sending chunk ${chunkIndex}, size: ${chunk.length}`);
             ws.send(message, (error) => {
-                if (error) console.error('Error sending chunk:', error);
+                if (error) console.error("Error sending chunk:", error);
             });
-            
+
             chunkIndex++;
         } else if (chunkIndex >= totalChunks) {
             clearInterval(intervalId);
@@ -526,17 +532,19 @@ function streamVideo(ws, videoFile) {
                 const end = Math.min(start + chunkSize, videoData.length);
                 const chunk = videoData.slice(start, end);
 
-                ws.send(JSON.stringify({
-                    msg_type: "MEDIA_DATA",
-                    content: {
-                        user_id: 0,
-                        media_type: "VIDEO",
-                        data: chunk.toString('base64'),
-                        timestamp: Date.now(),
-                        sequence: chunkIndex,
-                        is_last: chunkIndex === totalChunks - 1
-                    }
-                }));
+                ws.send(
+                    JSON.stringify({
+                        msg_type: "MEDIA_DATA",
+                        content: {
+                            user_id: 0,
+                            media_type: "VIDEO",
+                            data: chunk.toString("base64"),
+                            timestamp: Date.now(),
+                            sequence: chunkIndex,
+                            is_last: chunkIndex === totalChunks - 1,
+                        },
+                    }),
+                );
 
                 chunkIndex++;
             } else if (chunkIndex >= totalChunks) {
