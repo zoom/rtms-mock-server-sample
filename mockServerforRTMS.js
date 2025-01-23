@@ -127,7 +127,7 @@ function startMediaServer() {
     if (!mediaServer) {
         mediaServer = new WebSocket.Server(
             {
-                port: HTTP_PORT,
+                port: MEDIA_STREAM_PORT,
                 host: "0.0.0.0",
                 path: "/all",
                 clientTracking: true,
