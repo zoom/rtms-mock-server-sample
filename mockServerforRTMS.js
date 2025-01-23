@@ -6,8 +6,9 @@ const path = require("path");
 const { exec } = require("child_process");
 
 // Port configuration
-const HANDSHAKE_PORT = 9092;
-const MEDIA_STREAM_PORT = 8081;
+const HANDSHAKE_PORT = 9092; // Signaling server port
+const MEDIA_STREAM_PORT = 3000; // Media server port
+const EXTERNAL_MEDIA_PORT = 3000; // Port for external media connections
 
 // Logging function
 function logWebSocketMessage(direction, type, message, path = "") {
@@ -279,9 +280,11 @@ function handleSignalingHandshake(ws, message) {
     const host = ws._socket.address().address;
     // Use HTTP_PORT for media server
     // In deployment, don't include the port as Replit handles port mapping
-    const mediaHost = process.env.MEDIA_HOST || process.env.REPL_SLUG ? 
-        `${process.env.REPL_SLUG}.replit.app` : 
-        `${host}:${HTTP_PORT}`;
+    // Always include the media port in URLs
+    const mediaHost = process.env.MEDIA_HOST || 
+        (process.env.REPL_SLUG ? 
+            `${process.env.REPL_SLUG}.replit.app:${EXTERNAL_MEDIA_PORT}` : 
+            `${host}:${MEDIA_STREAM_PORT}`);
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
         protocol_version: 1,
