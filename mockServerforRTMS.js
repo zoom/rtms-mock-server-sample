@@ -185,10 +185,10 @@ const wss = new WebSocket.Server({
     host: "0.0.0.0", 
     port: HANDSHAKE_PORT,
     clientTracking: true 
-}, () => {
-    console.log(`Handshake WSS server is running on port ${HANDSHAKE_PORT}`);
-    isHandshakeServerActive = true;
 });
+
+isHandshakeServerActive = true;
+console.log(`Handshake WSS server is running on port ${HANDSHAKE_PORT}`);
 
 wss.on("connection", (ws) => {
     console.log("New handshake connection established");
@@ -196,14 +196,12 @@ wss.on("connection", (ws) => {
     // Handle handshake disconnection
     ws.on("close", () => {
         console.log("Handshake connection closed");
-        isHandshakeServerActive = false;
         closeMediaServer();
     });
 
     // Handle handshake errors
     ws.on("error", () => {
         console.log("Handshake connection error");
-        isHandshakeServerActive = false;
         closeMediaServer();
     });
 
