@@ -181,7 +181,14 @@ function startMediaServer() {
 }
 
 // Only start handshake server initially
-const wss = new WebSocket.Server({ host: "0.0.0.0", port: 9092 });
+const wss = new WebSocket.Server({ 
+    host: "0.0.0.0", 
+    port: HANDSHAKE_PORT,
+    clientTracking: true 
+}, () => {
+    console.log(`Handshake WSS server is running on port ${HANDSHAKE_PORT}`);
+    isHandshakeServerActive = true;
+});
 
 wss.on("connection", (ws) => {
     console.log("New handshake connection established");
@@ -278,9 +285,7 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    const mediaHost =
-        process.env.MEDIA_HOST ||
-        `${ws._socket.localAddress}:${MEDIA_STREAM_PORT}`;
+    const mediaHost = process.env.MEDIA_HOST || `0.0.0.0:${MEDIA_STREAM_PORT}`;
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
         protocol_version: 1,
