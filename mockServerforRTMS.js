@@ -278,7 +278,10 @@ function handleSignalingHandshake(ws, message) {
     // Get the host without port from the signaling connection
     const host = ws._socket.address().address;
     // Use HTTP_PORT for media server
-    const mediaHost = process.env.MEDIA_HOST || `${host}:${HTTP_PORT}`;
+    // In deployment, don't include the port as Replit handles port mapping
+    const mediaHost = process.env.MEDIA_HOST || process.env.REPL_SLUG ? 
+        `${process.env.REPL_SLUG}.replit.app` : 
+        `${host}:${HTTP_PORT}`;
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
         protocol_version: 1,
