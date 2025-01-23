@@ -10,9 +10,13 @@ const HANDSHAKE_PORT = 9092;
 const MEDIA_STREAM_PORT = 8081;
 
 // Logging function
-function logWebSocketMessage(direction, type, message, path = '') {
-    console.log(`[${new Date().toISOString()}] ${direction} ${type} ${path ? `(${path})` : ''}: `, 
-        typeof message === 'string' ? message : JSON.stringify(message, null, 2));
+function logWebSocketMessage(direction, type, message, path = "") {
+    console.log(
+        `[${new Date().toISOString()}] ${direction} ${type} ${path ? `(${path})` : ""}: `,
+        typeof message === "string"
+            ? message
+            : JSON.stringify(message, null, 2),
+    );
 }
 
 // stream start time
@@ -33,15 +37,15 @@ const app = express();
 let mediaServer = null;
 let mediaWebSocketServer;
 let isHandshakeServerActive = false;
-const server = require('http').createServer(app);
+const server = require("http").createServer(app);
 
-server.on('upgrade', (request, socket, head) => {
-    console.log('Upgrade request received for:', request.url);
-    
+server.on("upgrade", (request, socket, head) => {
+    console.log("Upgrade request received for:", request.url);
+
     if (mediaServer) {
         mediaServer.handleUpgrade(request, socket, head, (ws) => {
-            console.log('WebSocket connection upgraded');
-            mediaServer.emit('connection', ws, request);
+            console.log("WebSocket connection upgraded");
+            mediaServer.emit("connection", ws, request);
         });
     } else {
         socket.destroy();
@@ -200,7 +204,12 @@ wss.on("connection", (ws) => {
     ws.on("message", async (data) => {
         try {
             const message = JSON.parse(data);
-            logWebSocketMessage("RECEIVED", message.msg_type, message, "signaling");
+            logWebSocketMessage(
+                "RECEIVED",
+                message.msg_type,
+                message,
+                "signaling",
+            );
             if (message.msg_type === "SIGNALING_HAND_SHAKE_REQ") {
                 startMediaServer(); // Allow media server to restart if needed
                 handleSignalingHandshake(ws, message);
@@ -269,7 +278,9 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    const mediaHost = process.env.MEDIA_HOST || `${ws._socket.localAddress}:${MEDIA_STREAM_PORT}`;
+    const mediaHost =
+        process.env.MEDIA_HOST ||
+        `${ws._socket.localAddress}:${MEDIA_STREAM_PORT}`;
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
         protocol_version: 1,
@@ -279,17 +290,16 @@ function handleSignalingHandshake(ws, message) {
                 audio: `wss://${mediaHost}/audio`,
                 video: `wss://${mediaHost}/video`,
                 transcript: `wss://${mediaHost}/transcript`,
-                all: `wss://${mediaHost}/all`
+                all: `wss://${mediaHost}/all`,
             },
             srtp_keys: {
                 audio: crypto.randomBytes(32).toString("hex"),
                 video: crypto.randomBytes(32).toString("hex"),
-                share: crypto.randomBytes(32).toString("hex")
-            }
-        }
+                share: crypto.randomBytes(32).toString("hex"),
+            },
+        },
     };
     ws.send(JSON.stringify(response));
-}
 }
 
 // Handle event subscription
@@ -315,7 +325,10 @@ function handleSessionStateRequest(ws, message) {
 // Setup media WebSocket server
 function setupMediaWebSocketServer(wss) {
     wss.on("connection", (ws, req) => {
-        console.log("New media server connection accepted from:", req.connection.remoteAddress);
+        console.log(
+            "New media server connection accepted from:",
+            req.connection.remoteAddress,
+        );
         console.log("Connection URL:", req.url);
         console.log("Connection headers:", req.headers);
 
@@ -335,20 +348,30 @@ function setupMediaWebSocketServer(wss) {
         ws.on("message", (data) => {
             try {
                 const message = JSON.parse(data);
-                logWebSocketMessage("RECEIVED", message.msg_type, message, path);
+                logWebSocketMessage(
+                    "RECEIVED",
+                    message.msg_type,
+                    message,
+                    path,
+                );
 
-                switch(message.msg_type) {
+                switch (message.msg_type) {
                     case "DATA_HAND_SHAKE_REQ":
-                        console.log("Processing DATA_HAND_SHAKE_REQ for channel:", path);
+                        console.log(
+                            "Processing DATA_HAND_SHAKE_REQ for channel:",
+                            path,
+                        );
                         handleDataHandshake(ws, message, path);
                         break;
                     case "KEEP_ALIVE_REQ":
                         console.log("Received keepalive request");
-                        ws.send(JSON.stringify({
-                            msg_type: "KEEP_ALIVE_RESP",
-                            sequence: message.sequence,
-                            timestamp: Date.now()
-                        }));
+                        ws.send(
+                            JSON.stringify({
+                                msg_type: "KEEP_ALIVE_RESP",
+                                sequence: message.sequence,
+                                timestamp: Date.now(),
+                            }),
+                        );
                         break;
                     case "EVENT_SUBSCRIPTION":
                         console.log("Processing event subscription");
@@ -358,7 +381,10 @@ function setupMediaWebSocketServer(wss) {
                         console.log("Unknown message type:", message.msg_type);
                 }
 
-                console.log("Active sessions:", Array.from(clientSessions.keys()).length);
+                console.log(
+                    "Active sessions:",
+                    Array.from(clientSessions.keys()).length,
+                );
             } catch (error) {
                 console.error("Error processing message:", error.message);
                 console.error("Stack trace:", error.stack);
