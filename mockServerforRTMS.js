@@ -482,7 +482,7 @@ function streamAudio(ws, audioFile) {
             const chunk = chunks.slice(start, end);
             
             ws.send(JSON.stringify({
-                msg_type: "MEDIA_DATA_AUDIO",
+                msg_type: "MEDIA_DATA",
                 content: {
                     user_id: 0,
                     media_type: "AUDIO",
@@ -520,7 +520,7 @@ function streamVideo(ws, videoFile) {
                 const chunk = videoData.slice(start, end);
 
                 ws.send(JSON.stringify({
-                    msg_type: "MEDIA_DATA_VIDEO",
+                    msg_type: "MEDIA_DATA",
                     content: {
                         user_id: 0,
                         media_type: "VIDEO",
