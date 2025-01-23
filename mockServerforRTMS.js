@@ -88,9 +88,23 @@ app.get("/health", (req, res) => {
 });
 
 // Start HTTP server
-const HTTP_PORT = process.env.PORT || 9092;
+const HTTP_PORT = process.env.PORT || 3000;
 server.listen(HTTP_PORT, "0.0.0.0", () => {
     console.log(`HTTP/WebSocket server running on port ${HTTP_PORT}`);
+});
+
+// Ensure health check returns quickly
+app.get("/health", (req, res) => {
+    res.status(200).json({ status: "ok" });
+});
+
+// Add WebSocket health check
+app.get("/ws-health", (req, res) => {
+    if (isHandshakeServerActive && mediaServer) {
+        res.status(200).json({ status: "ok" });
+    } else {
+        res.status(503).json({ status: "error", message: "WebSocket servers not ready" });
+    }
 });
 
 // Keep track of sessions and client connections
