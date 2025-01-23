@@ -467,6 +467,7 @@ function startMediaStreams(ws, channel) {
 function streamAudio(ws, audioFile) {
     console.log("Starting audio stream from:", audioFile);
     const chunks = fs.readFileSync(audioFile); // Read entire file
+    console.log("Read audio file size:", chunks.length);
     const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
     let chunkIndex = 0;
     const totalChunks = Math.ceil(chunks.length / chunkSize);
@@ -481,7 +482,7 @@ function streamAudio(ws, audioFile) {
             const end = Math.min(start + chunkSize, chunks.length);
             const chunk = chunks.slice(start, end);
             
-            ws.send(JSON.stringify({
+            const message = JSON.stringify({
                 msg_type: "MEDIA_DATA",
                 content: {
                     user_id: 0,
@@ -490,7 +491,11 @@ function streamAudio(ws, audioFile) {
                     timestamp: Date.now(),
                     sequence: chunkIndex
                 }
-            }));
+            });
+            console.log(`Sending chunk ${chunkIndex}, size: ${chunk.length}`);
+            ws.send(message, (error) => {
+                if (error) console.error('Error sending chunk:', error);
+            });
             
             chunkIndex++;
         } else if (chunkIndex >= totalChunks) {
