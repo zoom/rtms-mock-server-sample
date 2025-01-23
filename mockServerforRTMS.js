@@ -39,15 +39,40 @@ let mediaWebSocketServer;
 let isHandshakeServerActive = false;
 const server = require("http").createServer(app);
 
+// Modify the server.on("upgrade") handler
 server.on("upgrade", (request, socket, head) => {
     console.log("Upgrade request received for:", request.url);
 
-    if (mediaServer) {
-        mediaServer.handleUpgrade(request, socket, head, (ws) => {
-            console.log("WebSocket connection upgraded");
-            mediaServer.emit("connection", ws, request);
+    // Add more detailed logging
+    console.log("Request headers:", request.headers);
+    console.log("Request path:", request.url);
+
+    if (request.url === "/signaling") {
+        // Handle signaling WebSocket
+        wss.handleUpgrade(request, socket, head, (ws) => {
+            wss.emit("connection", ws, request);
         });
+    } else if (
+        request.url.startsWith("/audio") ||
+        request.url.startsWith("/video") ||
+        request.url.startsWith("/transcript") ||
+        request.url.startsWith("/all")
+    ) {
+        // This is a media connection request
+        if (mediaServer) {
+            console.log(
+                "Upgrading media WebSocket connection for:",
+                request.url,
+            );
+            mediaServer.handleUpgrade(request, socket, head, (ws) => {
+                mediaServer.emit("connection", ws, request);
+            });
+        } else {
+            console.log("No media server available, closing connection");
+            socket.destroy();
+        }
     } else {
+        console.log("Invalid WebSocket path:", request.url);
         socket.destroy();
     }
 });
@@ -149,16 +174,13 @@ function startMediaServer() {
     }
 
     if (!mediaServer) {
-        mediaServer = new WebSocket.Server(
-            {
-                server: server,
-                clientTracking: true,
-            },
-            () => {
-                console.log("Media WSS server is running");
-                setupMediaWebSocketServer(mediaServer);
-            },
-        );
+        mediaServer = new WebSocket.Server({
+            noServer: true, // Important: Use noServer: true
+            clientTracking: true,
+        });
+
+        console.log("Media WSS server is running");
+        setupMediaWebSocketServer(mediaServer);
 
         mediaServer.on("error", (error) => {
             console.error("Media WSS server error:", error);
@@ -172,11 +194,10 @@ function startMediaServer() {
     return mediaServer;
 }
 
-// Only start handshake server initially
-const wss = new WebSocket.Server({ 
-    host: "0.0.0.0", 
-    port: HANDSHAKE_PORT,
-    clientTracking: true 
+// Update the handshake server to use a specific port
+const wss = new WebSocket.Server({
+    noServer: true, // Change to noServer: true
+    clientTracking: true,
 });
 
 isHandshakeServerActive = true;
@@ -275,13 +296,11 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    // Get the host without port from the signaling connection
-    const host = ws._socket.address().address;
-    // Use HTTP_PORT for media server
-    // In deployment, don't include the port as Replit handles port mapping
-    const mediaHost = process.env.MEDIA_HOST || process.env.REPL_SLUG ? 
-        `${process.env.REPL_SLUG}.replit.app` : 
-        `${host}:${HTTP_PORT}`;
+    // Use the Replit domain WITHOUT port for WebSocket connections
+    const mediaHost = process.env.REPL_SLUG
+        ? `${process.env.REPL_SLUG}.replit.dev`
+        : `localhost:${HTTP_PORT}`;
+
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
         protocol_version: 1,
@@ -300,6 +319,10 @@ function handleSignalingHandshake(ws, message) {
             },
         },
     };
+    console.log(
+        "Sending handshake response with URLs:",
+        response.media_server.server_urls,
+    );
     ws.send(JSON.stringify(response));
 }
 
@@ -326,79 +349,49 @@ function handleSessionStateRequest(ws, message) {
 // Setup media WebSocket server
 function setupMediaWebSocketServer(wss) {
     wss.on("connection", (ws, req) => {
-        console.log(
-            "New media server connection accepted from:",
-            req.connection.remoteAddress,
-        );
+        console.log("Media server connection established");
         console.log("Connection URL:", req.url);
         console.log("Connection headers:", req.headers);
 
-        const path = req.url.replace("/", ""); // Extract channel name
-        const validChannels = ["audio", "video", "transcript", "all"];
+        const path = req.url.replace("/", "");
+        console.log(`Client connected to media channel: ${path}`);
 
-        if (!validChannels.includes(path)) {
-            console.error(`Invalid channel: ${path}`);
-            ws.close(1008, "Invalid channel");
-            return;
-        }
-
-        // Store path in ws object for later use
-        ws.channelPath = path;
-        console.log(`Client connected to channel: ${path}`);
-
-        ws.on("message", (data) => {
+        ws.on("message", async (data) => {
             try {
                 const message = JSON.parse(data);
-                logWebSocketMessage(
-                    "RECEIVED",
-                    message.msg_type,
-                    message,
-                    path,
-                );
+                console.log("Received message on media channel:", message);
 
-                switch (message.msg_type) {
-                    case "DATA_HAND_SHAKE_REQ":
-                        console.log(
-                            "Processing DATA_HAND_SHAKE_REQ for channel:",
-                            path,
-                        );
-                        handleDataHandshake(ws, message, path);
-                        break;
-                    case "KEEP_ALIVE_REQ":
-                        console.log("Received keepalive request");
-                        ws.send(
-                            JSON.stringify({
-                                msg_type: "KEEP_ALIVE_RESP",
-                                sequence: message.sequence,
-                                timestamp: Date.now(),
-                            }),
-                        );
-                        break;
-                    case "EVENT_SUBSCRIPTION":
-                        console.log("Processing event subscription");
-                        handleEventSubscription(ws, message);
-                        break;
-                    default:
-                        console.log("Unknown message type:", message.msg_type);
+                if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
+                    console.log(
+                        "Processing DATA_HAND_SHAKE_REQ on media channel",
+                    );
+                    // Send handshake response
+                    ws.send(
+                        JSON.stringify({
+                            msg_type: "DATA_HAND_SHAKE_RESP",
+                            protocol_version: 1,
+                            status_code: "STATUS_OK",
+                            sequence: generateSequence(),
+                            payload_encrypted: false,
+                        }),
+                    );
+
+                    // Start streaming immediately after handshake
+                    console.log("Starting media streams");
+                    startMediaStreams(ws, path);
                 }
-
-                console.log(
-                    "Active sessions:",
-                    Array.from(clientSessions.keys()).length,
-                );
             } catch (error) {
-                console.error("Error processing message:", error.message);
-                console.error("Stack trace:", error.stack);
-                console.error("Raw message:", data.toString());
+                console.error(
+                    "Error processing message on media channel:",
+                    error,
+                );
             }
         });
 
         ws.on("close", () => {
-            console.log("Media server connection closed");
-            clientSessions.delete(ws);
+            console.log("Media connection closed for channel:", path);
+            clearAllIntervals(ws);
         });
-
-        sendKeepAlive(ws);
     });
 }
 
@@ -540,45 +533,52 @@ function startMediaStreams(ws, channel) {
 // Helper functions to split up the functionality
 function streamAudio(ws, audioFile) {
     console.log("Starting audio stream from:", audioFile);
-    const chunks = fs.readFileSync(audioFile); // Read entire file
-    console.log("Read audio file size:", chunks.length);
-    const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
-    let chunkIndex = 0;
-    const totalChunks = Math.ceil(chunks.length / chunkSize);
+    try {
+        const chunks = fs.readFileSync(audioFile);
+        console.log("Successfully read audio file. Size:", chunks.length);
+        const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
+        let chunkIndex = 0;
+        const totalChunks = Math.ceil(chunks.length / chunkSize);
 
-    // Send stream state update
-    sendStreamStateUpdate(ws, "ACTIVE");
-    console.log(`Total audio chunks: ${totalChunks}`);
+        // Send stream state update
+        sendStreamStateUpdate(ws, "ACTIVE");
+        console.log(`Total audio chunks: ${totalChunks}`);
 
-    const intervalId = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
-            const start = chunkIndex * chunkSize;
-            const end = Math.min(start + chunkSize, chunks.length);
-            const chunk = chunks.slice(start, end);
+        const intervalId = setInterval(() => {
+            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
+                const start = chunkIndex * chunkSize;
+                const end = Math.min(start + chunkSize, chunks.length);
+                const chunk = chunks.slice(start, end);
 
-            const message = JSON.stringify({
-                msg_type: "MEDIA_DATA",
-                content: {
-                    user_id: 0,
-                    media_type: "AUDIO",
-                    data: chunk.toString("base64"),
-                    timestamp: Date.now(),
-                    sequence: chunkIndex,
-                },
-            });
-            console.log(`Sending chunk ${chunkIndex}, size: ${chunk.length}`);
-            ws.send(message, (error) => {
-                if (error) console.error("Error sending chunk:", error);
-            });
+                const message = JSON.stringify({
+                    msg_type: "MEDIA_DATA",
+                    content: {
+                        user_id: 0,
+                        media_type: "AUDIO",
+                        data: chunk.toString("base64"),
+                        timestamp: Date.now(),
+                        sequence: chunkIndex,
+                    },
+                });
+                console.log(
+                    `Sending chunk ${chunkIndex}, size: ${chunk.length}`,
+                );
+                ws.send(message, (error) => {
+                    if (error) console.error("Error sending chunk:", error);
+                });
 
-            chunkIndex++;
-        } else if (chunkIndex >= totalChunks) {
-            clearInterval(intervalId);
-        }
-    }, 100); // Send every 100ms
+                chunkIndex++;
+            } else if (chunkIndex >= totalChunks) {
+                clearInterval(intervalId);
+            }
+        }, 100); // Send every 100ms
 
-    ws.intervals = ws.intervals || [];
-    ws.intervals.push(intervalId);
+        ws.intervals = ws.intervals || [];
+        ws.intervals.push(intervalId);
+    } catch (error) {
+        console.error("Error reading audio file:", error);
+        return;
+    }
 }
 
 // Add this function after streamAudio function
