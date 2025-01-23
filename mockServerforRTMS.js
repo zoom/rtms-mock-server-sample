@@ -288,7 +288,6 @@ function handleSignalingHandshake(ws, message) {
             }
         }
     });
-    );
 }
 
 // Handle event subscription
