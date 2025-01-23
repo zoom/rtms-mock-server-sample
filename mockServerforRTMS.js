@@ -129,7 +129,7 @@ function startMediaServer() {
             {
                 port: MEDIA_STREAM_PORT,
                 host: "0.0.0.0",
-                path: "/all",
+                path: "/",  // Listen on root path
                 clientTracking: true,
             },
             (error) => {
@@ -138,7 +138,7 @@ function startMediaServer() {
                     return;
                 }
                 console.log(
-                    `Media WSS server is running on port ${MEDIA_STREAM_PORT} with path /all`,
+                    `Media WSS server is running on port ${MEDIA_STREAM_PORT}`,
                 );
                 setupMediaWebSocketServer(mediaServer);
             },
@@ -296,7 +296,9 @@ function handleSessionStateRequest(ws, message) {
 // Setup media WebSocket server
 function setupMediaWebSocketServer(wss) {
     wss.on("connection", (ws, req) => {
-        console.log("New media server connection accepted", req.url);
+        console.log("New media server connection accepted from:", req.connection.remoteAddress);
+        console.log("Connection URL:", req.url);
+        console.log("Connection headers:", req.headers);
 
         const path = req.url.replace("/", ""); // Extract channel name
         const validChannels = ["audio", "video", "transcript", "all"];
