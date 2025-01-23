@@ -393,13 +393,18 @@ function startMediaStreams(ws, channel) {
 
     let audioStream, videoStream;
 
-    // Handle audio streaming
+    // Handle media streaming
+    console.log("Starting media stream for channel:", channel);
+    console.log("Directory contents:", fs.readdirSync(PCM_DIR));
+
     if (channel === "audio" || channel === "all") {
         if (fs.existsSync(audioFile)) {
+            console.log("Found audio file, starting stream");
             audioStartTime = Date.now();
             streamAudio(ws, audioFile);
         } else {
             console.error("Audio PCM file not found:", audioFile);
+            console.log("Looking for file:", audioFile);
         }
     }
 
