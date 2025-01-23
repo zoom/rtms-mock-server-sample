@@ -303,15 +303,19 @@ function setupMediaWebSocketServer(wss) {
         ws.on("message", (data) => {
             try {
                 const message = JSON.parse(data);
-                console.log("Received:", message);
+                console.log("Received message on path:", path);
+                console.log("Message content:", message);
+                console.log("Current client sessions:", Array.from(clientSessions.keys()).length);
 
                 if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
+                    console.log("Processing DATA_HAND_SHAKE_REQ");
                     handleDataHandshake(ws, message, path);
                 } else {
                     console.error("Unknown message type:", message.msg_type);
                 }
             } catch (error) {
                 console.error("Error processing message:", error.message);
+                console.error("Stack trace:", error.stack);
             }
         });
 
