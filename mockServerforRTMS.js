@@ -369,20 +369,7 @@ function setupMediaWebSocketServer(wss) {
                     console.log(
                         "Processing DATA_HAND_SHAKE_REQ on media channel",
                     );
-                    // Send handshake response
-                    ws.send(
-                        JSON.stringify({
-                            msg_type: "DATA_HAND_SHAKE_RESP",
-                            protocol_version: 1,
-                            status_code: "STATUS_OK",
-                            sequence: generateSequence(),
-                            payload_encrypted: false,
-                        }),
-                    );
-
-                    // Start streaming immediately after handshake
-                    console.log("Starting media streams");
-                    startMediaStreams(ws, path);
+                    handleDataHandshake(ws, message, path);
                 }
             } catch (error) {
                 console.error(
