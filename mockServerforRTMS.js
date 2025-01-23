@@ -82,8 +82,13 @@ app.get("/", (req, res) => {
     res.send("RTMS Server is running");
 });
 
+// Add health check endpoint
+app.get("/health", (req, res) => {
+    res.status(200).send("OK");
+});
+
 // Start HTTP server
-const HTTP_PORT = 3000;
+const HTTP_PORT = process.env.PORT || 9092;
 server.listen(HTTP_PORT, "0.0.0.0", () => {
     console.log(`HTTP/WebSocket server running on port ${HTTP_PORT}`);
 });
@@ -196,12 +201,11 @@ function startMediaServer() {
 
 // Update the handshake server to use a specific port
 const wss = new WebSocket.Server({
-    noServer: true, // Change to noServer: true
+    noServer: true,
     clientTracking: true,
 });
 
 isHandshakeServerActive = true;
-console.log(`Handshake WSS server is running on port ${HANDSHAKE_PORT}`);
 
 wss.on("connection", (ws) => {
     console.log("New handshake connection established");
