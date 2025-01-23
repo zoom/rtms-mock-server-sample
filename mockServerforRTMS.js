@@ -319,10 +319,8 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    // Use the Replit domain WITHOUT port for WebSocket connections
-    const mediaHost = process.env.REPL_ID 
-        ? `${process.env.REPL_SLUG}-${process.env.OWNER}-${process.env.REPL_SLUG}.${process.env.REPL_SLUG}.repl.co`
-        : `localhost:${HTTP_PORT}`;
+    // Get host from request headers
+    const mediaHost = ws._socket.server._connectionKey.split(':')[0];
 
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
@@ -411,7 +409,7 @@ function handleDataHandshake(ws, message, channel) {
     if (message.protocol_version !== 1) {
         ws.send(
             JSON.stringify({
-                msg_type: "DATA_HAND_SHAKE_RESP",
+                msg_type: "DATA_HANDSHAKE_RESP",
                 protocol_version: 1,
                 status_code: "STATUS_INVALID_VERSION",
                 reason: "Unsupported protocol version",
@@ -441,7 +439,7 @@ function handleDataHandshake(ws, message, channel) {
 
     ws.send(
         JSON.stringify({
-            msg_type: "DATA_HAND_SHAKE_RESP",
+            msg_type: "DATA_HANDSHAKE_RESP",
             protocol_version: 1,
             status_code: "STATUS_OK",
             sequence: generateSequence(),
