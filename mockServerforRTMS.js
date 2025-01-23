@@ -9,6 +9,12 @@ const { exec } = require("child_process");
 const HANDSHAKE_PORT = 9092;
 const MEDIA_STREAM_PORT = 8081;
 
+// Logging function
+function logWebSocketMessage(direction, type, message, path = '') {
+    console.log(`[${new Date().toISOString()}] ${direction} ${type} ${path ? `(${path})` : ''}: `, 
+        typeof message === 'string' ? message : JSON.stringify(message, null, 2));
+}
+
 // stream start time
 let streamStartTime = null;
 let audioStartTime = null;
@@ -194,6 +200,7 @@ wss.on("connection", (ws) => {
     ws.on("message", async (data) => {
         try {
             const message = JSON.parse(data);
+            logWebSocketMessage("RECEIVED", message.msg_type, message, "signaling");
             if (message.msg_type === "SIGNALING_HAND_SHAKE_REQ") {
                 startMediaServer(); // Allow media server to restart if needed
                 handleSignalingHandshake(ws, message);
@@ -262,21 +269,18 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    const origin = ws.protocol || ws.upgradeReq?.headers?.origin || '';
-    const host = origin.replace(/^(https?|wss?):\/\//, '').split(':')[0];
-    
-    ws.send(
-        JSON.stringify({
-            msg_type: "SIGNALING_HAND_SHAKE_RESP",
-            protocol_version: 1,
-            status_code: "STATUS_OK",
-            media_server: {
-                server_urls: {
-                    audio: `wss://${host}/audio`,
-                    video: `wss://${host}/video`,
-                    transcript: `wss://${host}/transcript`,
-                    all: `wss://${host}/all`,
-                },
+    const mediaHost = process.env.MEDIA_HOST || `${ws._socket.localAddress}:${MEDIA_STREAM_PORT}`;
+    const response = {
+        msg_type: "SIGNALING_HAND_SHAKE_RESP",
+        protocol_version: 1,
+        status_code: "STATUS_OK",
+        media_server: {
+            server_urls: {
+                audio: `wss://${mediaHost}/audio`,
+                video: `wss://${mediaHost}/video`,
+                transcript: `wss://${mediaHost}/transcript`,
+                all: `wss://${mediaHost}/all`,
+            },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
                     video: crypto.randomBytes(32).toString("hex"),
@@ -329,9 +333,8 @@ function setupMediaWebSocketServer(wss) {
 
         ws.on("message", (data) => {
             try {
-                console.log('Raw message received:', data.toString());
                 const message = JSON.parse(data);
-                console.log(`Received ${message.msg_type} on channel:`, path);
+                logWebSocketMessage("RECEIVED", message.msg_type, message, path);
 
                 switch(message.msg_type) {
                     case "DATA_HAND_SHAKE_REQ":
