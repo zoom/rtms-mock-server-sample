@@ -248,6 +248,9 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
+    const origin = ws.protocol || ws.upgradeReq?.headers?.origin || '';
+    const host = origin.replace(/^(https?|wss?):\/\//, '').split(':')[0];
+    
     ws.send(
         JSON.stringify({
             msg_type: "SIGNALING_HAND_SHAKE_RESP",
@@ -255,10 +258,10 @@ function handleSignalingHandshake(ws, message) {
             status_code: "STATUS_OK",
             media_server: {
                 server_urls: {
-                    audio: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/audio`,
-                    video: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/video`,
-                    transcript: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/transcript`,
-                    all: `wss://${ws._socket.remoteAddress}:${MEDIA_STREAM_PORT}/all`,
+                    audio: `wss://${host}/audio`,
+                    video: `wss://${host}/video`,
+                    transcript: `wss://${host}/transcript`,
+                    all: `wss://${host}/all`,
                 },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
