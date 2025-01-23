@@ -250,10 +250,10 @@ function handleSignalingHandshake(ws, message) {
             status_code: "STATUS_OK",
             media_server: {
                 server_urls: {
-                    audio: `wss://localhost:${MEDIA_STREAM_PORT}/audio`,
-                    video: `wss://localhost:${MEDIA_STREAM_PORT}/video`,
-                    transcript: `wss://localhost:${MEDIA_STREAM_PORT}/transcript`,
-                    all: `wss://localhost:${MEDIA_STREAM_PORT}/all`,
+                    audio: `wss://mock-rtm-sserver-ojas931992.replit.app/audio`,
+                    video: `wss://mock-rtm-sserver-ojas931992.replit.app/video`,
+                    transcript: `wss://mock-rtm-sserver-ojas931992.replit.app/transcript`,
+                    all: `wss://mock-rtm-sserver-ojas931992.replit.app/all`,
                 },
                 srtp_keys: {
                     audio: crypto.randomBytes(32).toString("hex"),
