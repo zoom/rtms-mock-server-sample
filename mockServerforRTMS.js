@@ -14,8 +14,8 @@ let streamStartTime = null;
 let audioStartTime = null;
 
 // Directory for audio and video files
-const DATA_DIR = path.resolve(__dirname, "data");
-const PCM_DIR = path.resolve(__dirname, "data");
+const DATA_DIR = path.join(__dirname, "data");
+const PCM_DIR = path.join(__dirname, "data");
 
 // Ensure PCM directory exists
 if (!fs.existsSync(PCM_DIR)) {
