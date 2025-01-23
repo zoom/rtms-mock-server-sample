@@ -27,6 +27,20 @@ const app = express();
 let mediaServer = null;
 let mediaWebSocketServer;
 let isHandshakeServerActive = false;
+const server = require('http').createServer(app);
+
+server.on('upgrade', (request, socket, head) => {
+    console.log('Upgrade request received for:', request.url);
+    
+    if (mediaServer) {
+        mediaServer.handleUpgrade(request, socket, head, (ws) => {
+            console.log('WebSocket connection upgraded');
+            mediaServer.emit('connection', ws, request);
+        });
+    } else {
+        socket.destroy();
+    }
+});
 
 // Add HTTP server routes
 app.get("/", (req, res) => {
@@ -129,7 +143,7 @@ function startMediaServer() {
             {
                 port: MEDIA_STREAM_PORT,
                 host: "0.0.0.0",
-                path: "/",  // Listen on root path
+                noServer: true,
                 clientTracking: true,
             },
             (error) => {
