@@ -318,6 +318,14 @@ function setupMediaWebSocketServer(wss) {
                 if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
                     console.log("Processing DATA_HAND_SHAKE_REQ");
                     handleDataHandshake(ws, message, path);
+                } else if (message.msg_type === "KEEP_ALIVE_REQ") {
+                    ws.send(JSON.stringify({
+                        msg_type: "KEEP_ALIVE_RESP",
+                        sequence: message.sequence,
+                        timestamp: Date.now()
+                    }));
+                } else if (message.msg_type === "EVENT_SUBSCRIPTION") {
+                    handleEventSubscription(ws, message);
                 } else {
                     console.error("Unknown message type:", message.msg_type);
                 }
