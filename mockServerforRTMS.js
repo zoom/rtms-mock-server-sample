@@ -275,7 +275,10 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    const mediaHost = process.env.MEDIA_HOST || ws._socket.address().address + ':' + HTTP_PORT;
+    // Get the host without port from the signaling connection
+    const host = ws._socket.address().address;
+    // Use HTTP_PORT for media server
+    const mediaHost = process.env.MEDIA_HOST || `${host}:${HTTP_PORT}`;
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
         protocol_version: 1,
