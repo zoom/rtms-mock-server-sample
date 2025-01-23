@@ -465,78 +465,70 @@ function startMediaStreams(ws, channel) {
 
 // Helper functions to split up the functionality
 function streamAudio(ws, audioFile) {
-    const audioStream = fs.createReadStream(audioFile, {
-        highWaterMark: STREAM_CHUNK_SIZE,
-    });
-    let chunks = [];
+    console.log("Starting audio stream from:", audioFile);
+    const chunks = fs.readFileSync(audioFile); // Read entire file
+    const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
+    let chunkIndex = 0;
+    const totalChunks = Math.ceil(chunks.length / chunkSize);
 
-    audioStream.on("error", (error) => {
-        console.error("Error streaming audio:", error);
-        ws.close(1011, "Error streaming audio");
-    });
+    console.log(`Total audio chunks: ${totalChunks}`);
 
-    audioStream.on("data", (chunk) => {
-        chunks.push(chunk);
-    });
+    const intervalId = setInterval(() => {
+        if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
+            const start = chunkIndex * chunkSize;
+            const end = Math.min(start + chunkSize, chunks.length);
+            const chunk = chunks.slice(start, end);
+            
+            ws.send(JSON.stringify({
+                msg_type: "MEDIA_DATA_AUDIO",
+                content: {
+                    user_id: 0,
+                    data: chunk.toString('base64'),
+                    timestamp: Date.now(),
+                    sequence: chunkIndex
+                }
+            }));
+            
+            chunkIndex++;
+        } else if (chunkIndex >= totalChunks) {
+            clearInterval(intervalId);
+        }
+    }, 100); // Send every 100ms
 
-    audioStream.on("end", () => {
-        let chunkIndex = 0;
-        const intervalId = setInterval(() => {
-            if (
-                ws.readyState === WebSocket.OPEN &&
-                chunkIndex < chunks.length
-            ) {
-                ws.send(
-                    JSON.stringify({
-                        msg_type: "MEDIA_DATA_AUDIO",
-                        content: {
-                            data: chunks[chunkIndex].toString("base64"),
-                            timestamp: Date.now(),
-                        },
-                    }),
-                );
-                chunkIndex++;
-            } else if (chunkIndex >= chunks.length) {
-                clearInterval(intervalId);
-            }
-        }, AUDIO_INTERVAL_MS);
-
-        // Store interval ID for cleanup
-        ws.intervals = ws.intervals || [];
-        ws.intervals.push(intervalId);
-    });
+    ws.intervals = ws.intervals || [];
+    ws.intervals.push(intervalId);
 }
 
 // Add this function after streamAudio function
 function streamVideo(ws, videoFile) {
     try {
+        console.log("Starting video stream from:", videoFile);
         const videoData = fs.readFileSync(videoFile);
-        const chunkSize = 1024; // Adjust based on your needs
+        const chunkSize = 8192; // Larger chunks for video
         let chunkIndex = 0;
-        const chunks = [];
+        const totalChunks = Math.ceil(videoData.length / chunkSize);
 
-        // Split video data into chunks
-        for (let i = 0; i < videoData.length; i += chunkSize) {
-            chunks.push(videoData.slice(i, i + chunkSize));
-        }
+        console.log(`Total video chunks: ${totalChunks}`);
 
         const intervalId = setInterval(() => {
-            if (
-                ws.readyState === WebSocket.OPEN &&
-                chunkIndex < chunks.length
-            ) {
-                ws.send(
-                    JSON.stringify({
-                        msg_type: "MEDIA_DATA_VIDEO",
-                        content: {
-                            data: chunks[chunkIndex].toString("base64"),
-                            timestamp: getCurrentPlaybackTime(),
-                            is_last: chunkIndex === chunks.length - 1,
-                        },
-                    }),
-                );
+            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
+                const start = chunkIndex * chunkSize;
+                const end = Math.min(start + chunkSize, videoData.length);
+                const chunk = videoData.slice(start, end);
+
+                ws.send(JSON.stringify({
+                    msg_type: "MEDIA_DATA_VIDEO",
+                    content: {
+                        user_id: 0,
+                        data: chunk.toString('base64'),
+                        timestamp: Date.now(),
+                        sequence: chunkIndex,
+                        is_last: chunkIndex === totalChunks - 1
+                    }
+                }));
+
                 chunkIndex++;
-            } else if (chunkIndex >= chunks.length) {
+            } else if (chunkIndex >= totalChunks) {
                 clearInterval(intervalId);
             }
         }, 33); // ~30fps
