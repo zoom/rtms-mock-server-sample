@@ -35,11 +35,10 @@ if (!fs.existsSync(PCM_DIR)) {
 // Express apps and WebSocket servers
 const handshakeApp = express();
 const mediaApp = express();
-let mediaServer = null;
+let mediaServer = require("http").createServer(mediaApp);
 let mediaWebSocketServer;
 let isHandshakeServerActive = false;
 const handshakeServer = require("http").createServer(handshakeApp);
-const mediaServer = require("http").createServer(mediaApp);
 
 // Start both servers
 handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
