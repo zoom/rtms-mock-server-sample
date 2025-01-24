@@ -348,10 +348,10 @@ function handleSignalingHandshake(ws, message) {
         return;
     }
 
-    // Validate signature
+    // Validate signature using client_id + "," + meeting_uuid + "," + rtms_stream_id
     const expectedSignature = crypto
-        .createHmac('sha256', matchingCred.client_id)
-        .update(`${meeting_uuid}${rtms_stream_id}`)
+        .createHmac('sha256', matchingCred.client_secret)
+        .update(`${matchingCred.client_id},${meeting_uuid},${rtms_stream_id}`)
         .digest('hex');
 
     if (signature !== expectedSignature) {
