@@ -35,8 +35,8 @@ if (!fs.existsSync(PCM_DIR)) {
 // Express apps and WebSocket servers
 const handshakeApp = express();
 const mediaApp = express();
-let mediaServer = require("http").createServer(mediaApp);
-let mediaWebSocketServer;
+const mediaHttpServer = require("http").createServer(mediaApp);
+let mediaServer = null;
 let isHandshakeServerActive = false;
 const handshakeServer = require("http").createServer(handshakeApp);
 
@@ -45,8 +45,11 @@ handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
     console.log(`Handshake server running on port ${HANDSHAKE_PORT}`);
 });
 
-mediaServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
+mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
     console.log(`Media server running on port ${MEDIA_STREAM_PORT}`);
+    // Create WebSocket server attached to HTTP server
+    mediaServer = new WebSocket.Server({ server: mediaHttpServer });
+    setupMediaWebSocketServer(mediaServer);
 });
 
 // Modify the server.on("upgrade") handler
