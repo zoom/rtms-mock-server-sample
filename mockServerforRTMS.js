@@ -32,15 +32,26 @@ if (!fs.existsSync(PCM_DIR)) {
     fs.mkdirSync(PCM_DIR, { recursive: true });
 }
 
-// Express app and WebSocket servers
-const app = express();
+// Express apps and WebSocket servers
+const handshakeApp = express();
+const mediaApp = express();
 let mediaServer = null;
 let mediaWebSocketServer;
 let isHandshakeServerActive = false;
-const server = require("http").createServer(app);
+const handshakeServer = require("http").createServer(handshakeApp);
+const mediaServer = require("http").createServer(mediaApp);
+
+// Start both servers
+handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
+    console.log(`Handshake server running on port ${HANDSHAKE_PORT}`);
+});
+
+mediaServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
+    console.log(`Media server running on port ${MEDIA_STREAM_PORT}`);
+});
 
 // Modify the server.on("upgrade") handler
-server.on("upgrade", (request, socket, head) => {
+handshakeServer.on("upgrade", (request, socket, head) => {
     console.log("Upgrade request received for:", request.url);
 
     // Add more detailed logging
@@ -83,28 +94,22 @@ server.on("upgrade", (request, socket, head) => {
 });
 
 // Add HTTP server routes
-app.get("/", (req, res) => {
+handshakeApp.get("/", (req, res) => {
     res.send("RTMS Server is running");
 });
 
 // Add health check endpoint
-app.get("/health", (req, res) => {
+handshakeApp.get("/health", (req, res) => {
     res.status(200).send("OK");
 });
 
-// Start HTTP server
-const HTTP_PORT = process.env.PORT || 3000;
-server.listen(HTTP_PORT, "0.0.0.0", () => {
-    console.log(`HTTP/WebSocket server running on port ${HTTP_PORT}`);
-});
-
 // Ensure health check returns quickly
-app.get("/health", (req, res) => {
+handshakeApp.get("/health", (req, res) => {
     res.status(200).json({ status: "ok" });
 });
 
 // Add WebSocket health check
-app.get("/ws-health", (req, res) => {
+handshakeApp.get("/ws-health", (req, res) => {
     if (isHandshakeServerActive && mediaServer) {
         res.status(200).json({ status: "ok" });
     } else {
@@ -382,10 +387,10 @@ function handleSignalingHandshake(ws, message) {
         status_code: "STATUS_OK",
         media_server: {
             server_urls: {
-                audio: `wss://${mediaHost}/audio`,
-                video: `wss://${mediaHost}/video`,
-                transcript: `wss://${mediaHost}/transcript`,
-                all: `wss://${mediaHost}/all`,
+                audio: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/audio`,
+                video: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/video`,
+                transcript: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/transcript`,
+                all: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/all`,
             },
             srtp_keys: {
                 audio: crypto.randomBytes(32).toString("hex"),
@@ -995,7 +1000,7 @@ const DEFAULT_AUDIO_PARAMS = {
 const DEFAULT_VIDEO_PARAMS = {
     content_type: MEDIA_CONTENT_TYPE.RAW_VIDEO,
     codec: "JPG",
-    resolution: "HD",
+resolution: "HD",
     fps: 5,
 };
 
