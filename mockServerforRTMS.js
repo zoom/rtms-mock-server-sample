@@ -381,7 +381,11 @@ function handleSignalingHandshake(ws, message) {
     });
 
     // Get host from request headers
-    const mediaHost = ws.upgradeReq.headers.host || ws._socket.server._connectionKey.split(':')[0];
+    const mediaHost = ws._socket.server._connectionKey 
+        ? ws._socket.server._connectionKey.split(':')[0] 
+        : (ws.upgradeReq && ws.upgradeReq.headers.host) 
+            ? ws.upgradeReq.headers.host 
+            : request.headers.host;
 
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
