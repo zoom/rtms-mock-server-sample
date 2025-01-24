@@ -479,8 +479,57 @@ function handleDataHandshake(ws, message, channel) {
         return;
     }
 
-    const { meeting_uuid, rtms_stream_id, payload_encryption, media_params } =
-        message;
+    const { meeting_uuid, rtms_stream_id, payload_encryption, media_params, signature } = message;
+
+    // Validate required fields
+    if (!meeting_uuid || !rtms_stream_id || !signature) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "DATA_HANDSHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_INVALID_MESSAGE",
+                reason: "Missing required fields",
+            }),
+        );
+        return;
+    }
+
+    // Get credentials for signature validation
+    const credentials = loadCredentials();
+    const matchingCred = credentials.find(cred => 
+        cred.meeting_uuid === meeting_uuid && 
+        cred.rtms_stream_id === rtms_stream_id
+    );
+
+    if (!matchingCred) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "DATA_HANDSHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_UNAUTHORIZED",
+                reason: "Invalid credentials",
+            }),
+        );
+        return;
+    }
+
+    // Validate signature using client_id + "," + meeting_uuid + "," + rtms_stream_id
+    const expectedSignature = crypto
+        .createHmac('sha256', matchingCred.client_secret)
+        .update(`${matchingCred.client_id},${meeting_uuid},${rtms_stream_id}`)
+        .digest('hex');
+
+    if (signature !== expectedSignature) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "DATA_HANDSHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_UNAUTHORIZED",
+                reason: "Invalid signature",
+            }),
+        );
+        return;
+    }
 
     // Find any session with matching credentials
     let session;
