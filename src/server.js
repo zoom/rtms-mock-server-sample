@@ -59,4 +59,8 @@ handshakeApp.get("/ws-health", (req, res) => {
     }
 });
 
-console.log("Starting WSS servers...");
+// Initialize PCM conversion before starting servers
+initializePCMConversion(() => {
+    console.log("PCM conversion complete");
+    console.log("Starting WSS servers...");
+});

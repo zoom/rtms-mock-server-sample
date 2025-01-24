@@ -1,9 +1,8 @@
-
 const { validateCredentials, loadCredentials } = require('../utils/authUtils');
 const { generateSignature } = require('../utils/cryptoUtils');
 const { clientSessions } = require('../utils/sessionStore');
 
-function setupSignalingHandshake(wss, mediaServer) {
+const setupSignalingHandshake = (wss, mediaServer) => {
     wss.on("connection", (ws) => {
         console.log("New handshake connection established");
 
@@ -20,6 +19,8 @@ function setupSignalingHandshake(wss, mediaServer) {
         ws.on("message", async (data) => {
             try {
                 const message = JSON.parse(data);
+                console.log("Received message:", message);
+
                 if (message.msg_type === "SIGNALING_HAND_SHAKE_REQ") {
                     handleSignalingHandshake(ws, message);
                 }
@@ -28,7 +29,7 @@ function setupSignalingHandshake(wss, mediaServer) {
             }
         });
     });
-}
+};
 
 function handleSignalingHandshake(ws, message) {
     const { meeting_uuid, rtms_stream_id, signature, protocol_version } = message;
@@ -44,8 +45,8 @@ function handleSignalingHandshake(ws, message) {
     }
 
     const credentials = loadCredentials();
-    const matchingCred = credentials.find(cred => 
-        cred.meeting_uuid === meeting_uuid && 
+    const matchingCred = credentials.find(cred =>
+        cred.meeting_uuid === meeting_uuid &&
         cred.rtms_stream_id === rtms_stream_id
     );
 
