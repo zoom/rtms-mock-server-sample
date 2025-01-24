@@ -329,14 +329,38 @@ function handleSignalingHandshake(ws, message) {
         return;
     }
 
-    // Validate against stored credentials
-    if (!validateCredentials(meeting_uuid, rtms_stream_id)) {
+    // Get credentials including client_id for signature validation
+    const credentials = loadCredentials();
+    const matchingCred = credentials.find(cred => 
+        cred.meeting_uuid === meeting_uuid && 
+        cred.rtms_stream_id === rtms_stream_id
+    );
+
+    if (!matchingCred) {
         ws.send(
             JSON.stringify({
                 msg_type: "SIGNALING_HAND_SHAKE_RESP",
                 protocol_version: 1,
                 status_code: "STATUS_UNAUTHORIZED",
                 reason: "Invalid credentials",
+            }),
+        );
+        return;
+    }
+
+    // Validate signature
+    const expectedSignature = crypto
+        .createHmac('sha256', matchingCred.client_id)
+        .update(`${meeting_uuid}${rtms_stream_id}`)
+        .digest('hex');
+
+    if (signature !== expectedSignature) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "SIGNALING_HAND_SHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_UNAUTHORIZED",
+                reason: "Invalid signature",
             }),
         );
         return;
