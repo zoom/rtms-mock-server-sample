@@ -1,10 +1,13 @@
 
 const WebSocket = require("ws");
 const express = require("express");
-const { setupMediaWebSocketServer } = require('./handlers/mediaHandler');
-const { setupSignalingHandshake } = require('./handlers/signalHandler');
-const { HANDSHAKE_PORT, MEDIA_STREAM_PORT } = require('./constants');
-const { initializePCMConversion } = require('./utils/mediaUtils');
+const WebSocket = require('ws');
+const express = require('express');
+const fs = require('fs');
+const path = require('path');
+
+const HANDSHAKE_PORT = 9092;
+const MEDIA_STREAM_PORT = 8081;
 
 // Express apps and WebSocket servers
 const handshakeApp = express();
@@ -59,8 +62,12 @@ handshakeApp.get("/ws-health", (req, res) => {
     }
 });
 
-// Initialize PCM conversion before starting servers
-initializePCMConversion(() => {
-    console.log("PCM conversion complete");
-    console.log("Starting WSS servers...");
+// Basic server setup for testing
+wss.on('connection', (ws) => {
+    console.log('Client connected');
+    ws.on('message', (message) => {
+        console.log('Received:', message);
+    });
 });
+
+console.log("Starting WSS servers...");
