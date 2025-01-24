@@ -475,7 +475,15 @@ function handleDataHandshake(ws, message, channel) {
     const { meeting_uuid, rtms_stream_id, payload_encryption, media_params } =
         message;
 
-    let session = clientSessions.get(ws);
+    // Find any session with matching credentials
+    let session;
+    clientSessions.forEach((value, key) => {
+        if (value.meeting_uuid === meeting_uuid && 
+            value.rtms_stream_id === rtms_stream_id) {
+            session = value;
+        }
+    });
+
     if (!session) {
         ws.send(
             JSON.stringify({
@@ -487,6 +495,9 @@ function handleDataHandshake(ws, message, channel) {
         );
         return;
     }
+
+    // Store session for this connection
+    clientSessions.set(ws, session);
 
     // Validate credentials match session
     if (session.meeting_uuid !== meeting_uuid || session.rtms_stream_id !== rtms_stream_id) {
