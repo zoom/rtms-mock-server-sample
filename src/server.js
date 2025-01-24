@@ -3,7 +3,9 @@ const WebSocket = require("ws");
 const express = require("express");
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
+// Constants
 const HANDSHAKE_PORT = 9092;
 const MEDIA_STREAM_PORT = 8081;
 
@@ -15,15 +17,31 @@ const mediaApp = express();
 const handshakeServer = require("http").createServer(handshakeApp);
 const mediaHttpServer = require("http").createServer(mediaApp);
 
-// WebSocket servers
+// WebSocket server for handshake
 const handshakeWss = new WebSocket.Server({ server: handshakeServer });
 let mediaServer = null;
+
+// Load credentials
+function loadCredentials() {
+    try {
+        const data = fs.readFileSync(path.join(__dirname, '../data/rtms_credentials.json'), 'utf8');
+        return JSON.parse(data).credentials;
+    } catch (error) {
+        console.error('Error loading credentials:', error);
+        return [];
+    }
+}
 
 function setupMediaWebSocketServer(wss) {
     wss.on('connection', (ws) => {
         console.log('Media client connected');
         ws.on('message', (message) => {
-            console.log('Media message received:', message);
+            try {
+                const data = JSON.parse(message);
+                console.log('Media message received:', data);
+            } catch (error) {
+                console.error('Error parsing media message:', error);
+            }
         });
     });
 }
@@ -35,8 +53,34 @@ function setupSignalingHandshake(wss) {
             try {
                 const data = JSON.parse(message);
                 console.log('Signaling message received:', data);
+                
+                if (data.msg_type === 'SIGNALING_HAND_SHAKE_REQ') {
+                    const credentials = loadCredentials();
+                    const { meeting_uuid, rtms_stream_id, signature } = data;
+                    
+                    // Basic validation
+                    if (!meeting_uuid || !rtms_stream_id || !signature) {
+                        ws.send(JSON.stringify({
+                            msg_type: 'SIGNALING_HAND_SHAKE_RESP',
+                            status_code: 'STATUS_INVALID_MESSAGE'
+                        }));
+                        return;
+                    }
+
+                    // Send success response
+                    ws.send(JSON.stringify({
+                        msg_type: 'SIGNALING_HAND_SHAKE_RESP',
+                        status_code: 'STATUS_OK',
+                        media_server: {
+                            server_urls: {
+                                audio: `wss://0.0.0.0:${MEDIA_STREAM_PORT}/audio`,
+                                video: `wss://0.0.0.0:${MEDIA_STREAM_PORT}/video`
+                            }
+                        }
+                    }));
+                }
             } catch (error) {
-                console.error('Error parsing message:', error);
+                console.error('Error processing signaling message:', error);
             }
         });
     });
