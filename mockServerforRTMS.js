@@ -380,12 +380,8 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    // Get host from request headers
-    const mediaHost = ws._socket.server._connectionKey 
-        ? ws._socket.server._connectionKey.split(':')[0] 
-        : (ws.upgradeReq && ws.upgradeReq.headers.host) 
-            ? ws.upgradeReq.headers.host 
-            : request.headers.host;
+    // Get host from the first WebSocket connection
+    const mediaHost = "testzoom.replit.app";
 
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
