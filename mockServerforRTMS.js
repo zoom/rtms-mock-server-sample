@@ -437,6 +437,18 @@ function handleDataHandshake(ws, message, channel) {
     session.channel = channel;
     session.payload_encryption = payload_encryption || false;
 
+    if (!validateMediaParams(media_params)) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "DATA_HANDSHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_INVALID_MEDIA_PARAMS",
+                reason: "Invalid media parameters",
+            }),
+        );
+        return;
+    }
+
     ws.send(
         JSON.stringify({
             msg_type: "DATA_HANDSHAKE_RESP",
@@ -908,3 +920,44 @@ const DEFAULT_VIDEO_PARAMS = {
     resolution: "HD",
     fps: 5,
 };
+
+function validateMediaParams(params) {
+    if (!params) return false;
+
+    if (params.audio) {
+        // Validate audio content type
+        if (params.audio.content_type !== MEDIA_CONTENT_TYPE.RAW_AUDIO) return false;
+
+        // Validate sample rate
+        if (!['SR_16K', 'SR_32K', 'SR_48K'].includes(params.audio.sample_rate)) return false;
+
+        // Validate channel
+        if (!['MONO', 'STEREO'].includes(params.audio.channel)) return false;
+
+        // Validate codec
+        if (!['L16', 'PCMA', 'PCMU', 'G722', 'OPUS'].includes(params.audio.codec)) return false;
+
+        // Validate data option
+        if (!['AUDIO_MIXED_STREAM', 'AUDIO_MULTI_STREAMS'].includes(params.audio.data_opt)) return false;
+
+        // Validate send interval
+        if (params.audio.send_interval && (params.audio.send_interval % 20 !== 0)) return false;
+    }
+
+    if (params.video) {
+        // Validate content type
+        if (params.video.content_type !== MEDIA_CONTENT_TYPE.RAW_VIDEO) return false;
+
+        // Validate codec based on fps
+        if (params.video.fps <= 5 && params.video.codec !== 'JPG') return false;
+        if (params.video.fps > 5 && params.video.codec !== 'H264') return false;
+
+        // Validate resolution
+        if (!['SD', 'HD', 'FHD', 'QHD'].includes(params.video.resolution)) return false;
+
+        // Validate fps range
+        if (typeof params.video.fps !== 'number' || params.video.fps < 1 || params.video.fps > 30) return false;
+    }
+
+    return true;
+}
