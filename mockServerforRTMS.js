@@ -381,7 +381,7 @@ function handleSignalingHandshake(ws, message) {
     });
 
     // Get host from request headers
-    const mediaHost = ws._socket.server._connectionKey.split(':')[0];
+    const mediaHost = ws.upgradeReq.headers.host || ws._socket.server._connectionKey.split(':')[0];
 
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
@@ -389,10 +389,10 @@ function handleSignalingHandshake(ws, message) {
         status_code: "STATUS_OK",
         media_server: {
             server_urls: {
-                audio: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/audio`,
-                video: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/video`,
-                transcript: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/transcript`,
-                all: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/all`,
+                audio: `wss://${mediaHost}/audio`,
+                video: `wss://${mediaHost}/video`,
+                transcript: `wss://${mediaHost}/transcript`,
+                all: `wss://${mediaHost}/all`,
             },
             srtp_keys: {
                 audio: crypto.randomBytes(32).toString("hex"),
