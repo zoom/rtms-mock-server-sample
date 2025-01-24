@@ -1,8 +1,6 @@
 
 const WebSocket = require("ws");
 const express = require("express");
-const WebSocket = require('ws');
-const express = require('express');
 const fs = require('fs');
 const path = require('path');
 
@@ -17,6 +15,24 @@ let mediaServer = null;
 let isHandshakeServerActive = false;
 const handshakeServer = require("http").createServer(handshakeApp);
 
+function setupMediaWebSocketServer(wss) {
+    wss.on('connection', (ws) => {
+        console.log('Media client connected');
+        ws.on('message', (message) => {
+            console.log('Media message received:', message);
+        });
+    });
+}
+
+function setupSignalingHandshake(wss) {
+    wss.on('connection', (ws) => {
+        console.log('Signaling client connected');
+        ws.on('message', (message) => {
+            console.log('Signaling message received:', message);
+        });
+    });
+}
+
 // Start both servers
 handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
     console.log(`Handshake server running on port ${HANDSHAKE_PORT}`);
@@ -30,7 +46,7 @@ mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
 
 // Setup signaling WebSocket server
 const wss = new WebSocket.Server({ noServer: true, clientTracking: true });
-setupSignalingHandshake(wss, mediaServer);
+setupSignalingHandshake(wss);
 
 // Handle WebSocket upgrade
 handshakeServer.on("upgrade", (request, socket, head) => {
@@ -60,14 +76,6 @@ handshakeApp.get("/ws-health", (req, res) => {
     } else {
         res.status(503).json({ status: "error", message: "WebSocket servers not ready" });
     }
-});
-
-// Basic server setup for testing
-wss.on('connection', (ws) => {
-    console.log('Client connected');
-    ws.on('message', (message) => {
-        console.log('Received:', message);
-    });
 });
 
 console.log("Starting WSS servers...");
