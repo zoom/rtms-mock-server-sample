@@ -278,6 +278,27 @@ wss.on("error", (error) => {
     closeMediaServer();
 });
 
+// Load and validate credentials
+function loadCredentials() {
+    const credentialsPath = path.join(__dirname, 'data', 'rtms_credentials.json');
+    try {
+        const data = fs.readFileSync(credentialsPath, 'utf8');
+        return JSON.parse(data).credentials;
+    } catch (error) {
+        console.error('Error loading credentials:', error);
+        return [];
+    }
+}
+
+// Validate credentials against stored values
+function validateCredentials(meeting_uuid, rtms_stream_id) {
+    const credentials = loadCredentials();
+    return credentials.some(cred => 
+        cred.meeting_uuid === meeting_uuid && 
+        cred.rtms_stream_id === rtms_stream_id
+    );
+}
+
 // Signaling handshake handler
 function handleSignalingHandshake(ws, message) {
     // Add version check
@@ -296,7 +317,7 @@ function handleSignalingHandshake(ws, message) {
     const { meeting_uuid, rtms_stream_id, signature } = message;
 
     // Validate handshake request
-    if (!rtms_stream_id || !signature) {
+    if (!meeting_uuid || !rtms_stream_id || !signature) {
         ws.send(
             JSON.stringify({
                 msg_type: "SIGNALING_HAND_SHAKE_RESP",
@@ -308,14 +329,23 @@ function handleSignalingHandshake(ws, message) {
         return;
     }
 
-    // Use placeholder values if necessary
-    const validMeetingUuid = meeting_uuid || "placeholder_meeting_uuid";
-    const validRtmsStreamId = rtms_stream_id || "placeholder_rtms_stream_id";
+    // Validate against stored credentials
+    if (!validateCredentials(meeting_uuid, rtms_stream_id)) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "SIGNALING_HAND_SHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_UNAUTHORIZED",
+                reason: "Invalid credentials",
+            }),
+        );
+        return;
+    }
 
-    // Store session with placeholder values
+    // Store valid session
     clientSessions.set(ws, {
-        meeting_uuid: validMeetingUuid,
-        rtms_stream_id: validRtmsStreamId,
+        meeting_uuid: meeting_uuid,
+        rtms_stream_id: rtms_stream_id,
         handshakeCompleted: true,
     });
 
@@ -423,15 +453,28 @@ function handleDataHandshake(ws, message, channel) {
 
     let session = clientSessions.get(ws);
     if (!session) {
-        console.warn(
-            "No session found for WebSocket. Initializing with placeholders.",
+        ws.send(
+            JSON.stringify({
+                msg_type: "DATA_HANDSHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_UNAUTHORIZED",
+                reason: "No valid session found",
+            }),
         );
-        session = {
-            meeting_uuid: meeting_uuid || "placeholder_meeting_uuid",
-            rtms_stream_id: rtms_stream_id || "placeholder_rtms_stream_id",
-            handshakeCompleted: true,
-        };
-        clientSessions.set(ws, session);
+        return;
+    }
+
+    // Validate credentials match session
+    if (session.meeting_uuid !== meeting_uuid || session.rtms_stream_id !== rtms_stream_id) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "DATA_HANDSHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_UNAUTHORIZED",
+                reason: "Credentials do not match session",
+            }),
+        );
+        return;
     }
 
     session.channel = channel;
