@@ -664,8 +664,12 @@ function handleDataHandshake(ws, message, channel) {
 
 // Start streaming media data
 function startMediaStreams(ws, channel) {
-    const audioFile = path.join(DATA_DIR, "video1241999856.mp4");
-    const videoFile = path.join(DATA_DIR, "video1241999856.mp4");
+    // Get random video file from video_files directory
+    const videoFiles = fs.readdirSync(path.join(DATA_DIR, 'video_files')).filter(file => file.endsWith('.mp4'));
+    const randomVideo = videoFiles[Math.floor(Math.random() * videoFiles.length)];
+    
+    const videoFile = path.join(DATA_DIR, 'video_files', randomVideo);
+    const audioFile = videoFile; // Using same file for audio
     const transcriptFile = path.join(DATA_DIR, "audio1241999856.txt");
 
     console.log("Media file paths:");
