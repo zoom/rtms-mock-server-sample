@@ -533,7 +533,8 @@ function setupMediaWebSocketServer(wss) {
                     // Broadcast media data to all connected clients
                     mediaServer.clients.forEach((client) => {
                         if (client.readyState === WebSocket.OPEN) {
-                            const clientPath = client.upgradeReq.url.replace('/', '');
+                            // Access pathname from stored property
+                            const clientPath = client.pathname ? client.pathname.replace('/', '') : 'all';
 
                             // Send data based on socket path
                             if (clientPath === 'all' || 
