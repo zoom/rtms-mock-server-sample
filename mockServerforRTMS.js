@@ -6,8 +6,8 @@ const path = require("path");
 const { exec } = require("child_process");
 
 // Port configuration
-const HANDSHAKE_PORT = 3000;
-const MEDIA_STREAM_PORT = 3001;
+const HANDSHAKE_PORT = 9092;
+const MEDIA_STREAM_PORT = 8081;
 
 // Logging function
 function logWebSocketMessage(direction, type, message, path = "") {
@@ -42,33 +42,14 @@ const handshakeServer = require("http").createServer(handshakeApp);
 
 // Start both servers
 handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
-    console.log(`Handshake server running on port ${HANDSHAKE_PORT} at 0.0.0.0`);
-}).on('error', (err) => {
-    console.error('Handshake server error:', err);
+    console.log(`Handshake server running on port ${HANDSHAKE_PORT}`);
 });
 
-const corsOptions = {
-    origin: '*',
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
-    optionsSuccessStatus: 204,
-};
-
-mediaApp.use(require('cors')(corsOptions));
-
 mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
-    const serverUrl = process.env.REPL_SLUG ? 
-        `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` :
-        `http://0.0.0.0:${MEDIA_STREAM_PORT}`;
-    console.log(`Media server running at ${serverUrl} on port ${MEDIA_STREAM_PORT}`);
-    mediaServer = new WebSocket.Server({ 
-        server: mediaHttpServer,
-        path: "/all",
-        perMessageDeflate: false
-    });
+    console.log(`Media server running on port ${MEDIA_STREAM_PORT}`);
+    // Create WebSocket server attached to HTTP server
+    mediaServer = new WebSocket.Server({ server: mediaHttpServer });
     setupMediaWebSocketServer(mediaServer);
-}).on('error', (err) => {
-    console.error('Media server error:', err);
 });
 
 // Modify the server.on("upgrade") handler
@@ -408,8 +389,8 @@ function handleSignalingHandshake(ws, message) {
         handshakeCompleted: true,
     });
 
-    // Get host from the first WebSocket connection
-    const mediaHost = "testzoom.replit.app";
+    // Get host from request headers
+    const mediaHost = ws._socket.server._connectionKey.split(":")[0];
 
     const response = {
         msg_type: "SIGNALING_HAND_SHAKE_RESP",
@@ -417,10 +398,10 @@ function handleSignalingHandshake(ws, message) {
         status_code: "STATUS_OK",
         media_server: {
             server_urls: {
-                audio: `wss://${mediaHost}/audio`,
-                video: `wss://${mediaHost}/video`,
-                transcript: `wss://${mediaHost}/transcript`,
-                all: `wss://${mediaHost}/all`,
+                audio: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/audio`,
+                video: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/video`,
+                transcript: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/transcript`,
+                all: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/all`,
             },
             srtp_keys: {
                 audio: crypto.randomBytes(32).toString("hex"),
@@ -730,7 +711,7 @@ function streamAudio(ws, audioFile) {
     try {
         const chunks = fs.readFileSync(audioFile);
         console.log("Successfully read audio file. Size:", chunks.length);
-        const chunkSize = 160; // 16-bit mono PCM at 16kHz
+        const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
         let chunkIndex = 0;
         const totalChunks = Math.ceil(chunks.length / chunkSize);
 
@@ -739,48 +720,33 @@ function streamAudio(ws, audioFile) {
         console.log(`Total audio chunks: ${totalChunks}`);
 
         const intervalId = setInterval(() => {
-            if (ws.readyState !== WebSocket.OPEN) {
-                console.log("WebSocket closed, stopping audio stream");
-                clearInterval(intervalId);
-                return;
-            }
-
-            if (chunkIndex < totalChunks) {
+            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
                 const start = chunkIndex * chunkSize;
                 const end = Math.min(start + chunkSize, chunks.length);
                 const chunk = chunks.slice(start, end);
 
-                try {
-                    // Convert to Int16Array for proper audio format
-                    const int16Array = new Int16Array(chunk.buffer, chunk.byteOffset, chunk.length / 2);
-                    const base64Data = Buffer.from(int16Array.buffer).toString('base64');
+                const message = JSON.stringify({
+                    msg_type: "MEDIA_DATA",
+                    content: {
+                        user_id: 0,
+                        media_type: "AUDIO",
+                        data: chunk.toString("base64"),
+                        timestamp: Date.now(),
+                        sequence: chunkIndex,
+                    },
+                });
+                console.log(
+                    `Sending chunk ${chunkIndex}, size: ${chunk.length}`,
+                );
+                ws.send(message, (error) => {
+                    if (error) console.error("Error sending chunk:", error);
+                });
 
-                    const message = JSON.stringify({
-                        msg_type: "MEDIA_DATA",
-                        content: {
-                            user_id: 0,
-                            media_type: "AUDIO",
-                            data: base64Data,
-                            timestamp: Date.now(),
-                            sequence: chunkIndex,
-                        },
-                    });
-
-                    ws.send(message, (error) => {
-                        if (error && error.code !== 'EPIPE') {
-                            console.error("Error sending chunk:", error);
-                        }
-                    });
-
-                    chunkIndex++;
-                } catch (error) {
-                    console.error("Error processing chunk:", error);
-                    clearInterval(intervalId);
-                }
-            } else {
+                chunkIndex++;
+            } else if (chunkIndex >= totalChunks) {
                 clearInterval(intervalId);
             }
-        }, 10); // Send every 10ms for smoother audio
+        }, 100); // Send every 100ms
 
         ws.intervals = ws.intervals || [];
         ws.intervals.push(intervalId);
@@ -802,43 +768,27 @@ function streamVideo(ws, videoFile) {
         console.log(`Total video chunks: ${totalChunks}`);
 
         const intervalId = setInterval(() => {
-            if (ws.readyState !== WebSocket.OPEN) {
-                console.log("WebSocket closed, stopping video stream");
-                clearInterval(intervalId);
-                return;
-            }
-
-            if (chunkIndex < totalChunks) {
+            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
                 const start = chunkIndex * chunkSize;
                 const end = Math.min(start + chunkSize, videoData.length);
                 const chunk = videoData.slice(start, end);
 
-                try {
-                    ws.send(
-                        JSON.stringify({
-                            msg_type: "MEDIA_DATA",
-                            content: {
-                                user_id: 0,
-                                media_type: "VIDEO",
-                                data: chunk.toString("base64"),
-                                timestamp: Date.now(),
-                                sequence: chunkIndex,
-                                is_last: chunkIndex === totalChunks - 1,
-                            },
-                        }),
-                        (error) => {
-                            if (error && error.code !== 'EPIPE') {
-                                console.error("Error sending video chunk:", error);
-                            }
-                        }
-                    );
+                ws.send(
+                    JSON.stringify({
+                        msg_type: "MEDIA_DATA",
+                        content: {
+                            user_id: 0,
+                            media_type: "VIDEO",
+                            data: chunk.toString("base64"),
+                            timestamp: Date.now(),
+                            sequence: chunkIndex,
+                            is_last: chunkIndex === totalChunks - 1,
+                        },
+                    }),
+                );
 
-                    chunkIndex++;
-                } catch (error) {
-                    console.error("Error processing video chunk:", error);
-                    clearInterval(intervalId);
-                }
-            } else {
+                chunkIndex++;
+            } else if (chunkIndex >= totalChunks) {
                 clearInterval(intervalId);
             }
         }, 33); // ~30fps
@@ -847,9 +797,7 @@ function streamVideo(ws, videoFile) {
         ws.intervals.push(intervalId);
     } catch (error) {
         console.error("Error streaming video:", error);
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.close(1011, "Error streaming video");
-        }
+        ws.close(1011, "Error streaming video");
     }
 }
 
