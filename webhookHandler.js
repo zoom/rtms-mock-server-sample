@@ -57,8 +57,20 @@ router.post('/api/send-webhook', async (req, res) => {
             body: JSON.stringify(payload)
         });
 
-        const responseData = await response.json();
-        res.json({ success: true, sent: payload, response: responseData });
+        let responseData;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            responseData = await response.json();
+        } else {
+            responseData = await response.text();
+        }
+
+        res.json({ 
+            success: response.ok,
+            status: response.status,
+            sent: payload, 
+            response: responseData 
+        });
     } catch (error) {
         res.status(500).json({ 
             success: false, 
