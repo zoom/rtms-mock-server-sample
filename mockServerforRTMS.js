@@ -369,7 +369,27 @@ function handleSignalingHandshake(ws, message) {
         return;
     }
 
-    const { meeting_uuid, rtms_stream_id, signature } = message;
+    const { meeting_uuid, rtms_stream_id, signature, media_params } = message;
+
+        // Set default media parameters if none provided
+        const defaultMediaParams = {
+            audio: {
+                content_type: MEDIA_CONTENT_TYPE.RAW_AUDIO,
+                sample_rate: "SR_16K",
+                channel: "MONO",
+                codec: "L16",
+                data_opt: "AUDIO_MIXED_STREAM",
+                send_interval: 20,
+            },
+            video: {
+                content_type: MEDIA_CONTENT_TYPE.RAW_VIDEO,
+                codec: "JPG",
+                resolution: "HD",
+                fps: 5,
+            }
+        };
+        
+        message.media_params = media_params || defaultMediaParams;
 
     if (!meeting_uuid || !rtms_stream_id || !signature) {
         ws.send(
