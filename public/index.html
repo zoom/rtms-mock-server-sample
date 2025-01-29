@@ -149,7 +149,7 @@
                                 }
                             }
                             document.getElementById('transcript').innerText = transcript;
-                            
+
                             // Send transcript data through websocket
                             mediaSocket.send(JSON.stringify({
                                 msg_type: "MEDIA_DATA_TRANSCRIPT",
