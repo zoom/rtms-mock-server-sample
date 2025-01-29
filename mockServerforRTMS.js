@@ -109,8 +109,9 @@ handshakeServer.on("upgrade", (request, socket, head) => {
 });
 
 // Add HTTP server routes
+handshakeApp.use(express.static('public'));
 handshakeApp.get("/", (req, res) => {
-    res.send("RTMS Server is running");
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 // Add health check endpoint
