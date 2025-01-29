@@ -55,8 +55,16 @@ mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
     setupMediaWebSocketServer(mediaServer);
 });
 
+// Handle errors on the socket
+const handleSocketError = (socket) => {
+    socket.on('error', (err) => {
+        console.error('Socket error:', err);
+    });
+};
+
 // Modify the server.on("upgrade") handler
 handshakeServer.on("upgrade", (request, socket, head) => {
+    handleSocketError(socket);
     console.log("Upgrade request received for:", request.url);
 
     // Add more detailed logging
@@ -235,9 +243,14 @@ function startMediaServer() {
 const wss = new WebSocket.Server({
     noServer: true,
     clientTracking: true,
+    host: '0.0.0.0'
 });
 
 isHandshakeServerActive = true;
+
+wss.on("error", (error) => {
+    console.error("WebSocket server error:", error);
+});
 
 wss.on("connection", (ws) => {
     console.log("New handshake connection established");
