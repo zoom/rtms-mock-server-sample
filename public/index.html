@@ -84,7 +84,7 @@
                 const resumeBtn = document.getElementById('resumeBtn');
                 const stopBtn = document.getElementById('stopBtn');
                 const sendBtn = document.getElementById('sendBtn');
-                
+
                 video.style.display = 'block';
                 pauseBtn.disabled = false;
                 resumeBtn.disabled = true;
@@ -100,18 +100,6 @@
                     await video.play();
 
                     mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
-
-                    mediaSocket.onclose = () => {
-                        console.log('Media connection closed');
-                        if (recognition) {
-                            recognition.stop();
-                        }
-                        document.getElementById('sendBtn').disabled = false;
-                        document.getElementById('pauseBtn').disabled = true;
-                        document.getElementById('resumeBtn').disabled = true;
-                        document.getElementById('stopBtn').disabled = true;
-                        document.getElementById('endBtn').disabled = true;
-                    };
 
                     mediaSocket.onopen = () => {
                         console.log('Connected to media server');
@@ -212,11 +200,17 @@
                         }
                     };
 
+                    // Add WebSocket close handler
                     mediaSocket.onclose = () => {
                         console.log('Media connection closed');
                         if (recognition) {
                             recognition.stop();
                         }
+                        document.getElementById('sendBtn').disabled = false;
+                        document.getElementById('pauseBtn').disabled = true;
+                        document.getElementById('resumeBtn').disabled = true;
+                        document.getElementById('stopBtn').disabled = true;
+                        document.getElementById('endBtn').disabled = true;
                     };
 
                 } catch (err) {
@@ -307,14 +301,14 @@
             function pauseSession() {
                 if (!mediaSocket || sessionState === STOPPED) return;
                 sessionState = PAUSED;
-                
+
                 if (mediaRecorders.video) mediaRecorders.video.stop();
                 if (mediaRecorders.audio) mediaRecorders.audio.stop();
                 if (recognition) recognition.stop();
-                
+
                 // Send state update before modifying UI
                 sendSessionStateUpdate(PAUSED, "ACTION_BY_USER");
-                
+
                 document.getElementById('resumeBtn').disabled = false;
                 document.getElementById('pauseBtn').disabled = true;
             }
@@ -324,16 +318,16 @@
                     alert('Session is stopped. Please start a new session.');
                     return;
                 }
-                
+
                 sessionState = RESUMED;
-                
+
                 if (mediaRecorders.video) mediaRecorders.video.start(100);
                 if (mediaRecorders.audio) mediaRecorders.audio.start(100);
                 if (recognition) recognition.start();
-                
+
                 // Send state update before modifying UI
                 sendSessionStateUpdate(RESUMED, "ACTION_BY_USER");
-                
+
                 document.getElementById('pauseBtn').disabled = false;
                 document.getElementById('resumeBtn').disabled = true;
             }
@@ -343,9 +337,9 @@
                 if (mediaSocket && sessionState !== STOPPED) {
                     sendSessionStateUpdate(STOPPED, "ACTION_BY_USER");
                 }
-                
+
                 sessionState = STOPPED;
-                
+
                 // Stop all media streams
                 if (recognition) recognition.stop();
                 if (mediaStream) {
@@ -353,14 +347,14 @@
                 }
                 if (mediaRecorders.video) mediaRecorders.video.stop();
                 if (mediaRecorders.audio) mediaRecorders.audio.stop();
-                
+
                 // Reset UI
                 document.getElementById('pauseBtn').disabled = true;
                 document.getElementById('resumeBtn').disabled = true;
                 document.getElementById('stopBtn').disabled = true;
                 document.getElementById('sendBtn').disabled = false;
                 document.getElementById('videoContainer').style.display = 'none';
-                
+
                 // Close connection after sending stop message
                 if (mediaSocket) {
                     setTimeout(() => {
@@ -378,7 +372,22 @@
             document.getElementById('endBtn').disabled = false;
             document.getElementById('sendBtn').disabled = true;
 
-            function endMeeting() {
+                    // Add WebSocket close handler
+                    if (mediaSocket) {
+                        mediaSocket.onclose = () => {
+                            console.log('Media connection closed');
+                            if (recognition) {
+                                recognition.stop();
+                            }
+                            document.getElementById('sendBtn').disabled = false;
+                            document.getElementById('pauseBtn').disabled = true;
+                            document.getElementById('resumeBtn').disabled = true;
+                            document.getElementById('stopBtn').disabled = true;
+                            document.getElementById('endBtn').disabled = true;
+                        };
+                    }
+
+                    async function endMeeting() {
                 // Send stream termination message
                 if (mediaSocket && mediaSocket.readyState === WebSocket.OPEN) {
                     mediaSocket.send(JSON.stringify({
@@ -405,7 +414,7 @@
                 }
                 if (mediaRecorders.video) mediaRecorders.video.stop();
                 if (mediaRecorders.audio) mediaRecorders.audio.stop();
-                
+
                 sessionState = "STOPPED";
             }
         </script>
