@@ -515,6 +515,7 @@ function setupMediaWebSocketServer(wss) {
         console.log("Connection URL:", req.url);
         console.log("Connection headers:", req.headers);
 
+        ws.pathname = req.url;
         const path = req.url.replace("/", "");
         console.log(`Client connected to media channel: ${path}`);
 
@@ -763,9 +764,8 @@ function startMediaStreams(ws, channel) {
                 if (message.msg_type === "MEDIA_DATA_TRANSCRIPT") {
                     // Broadcast transcript to all connected clients
                     mediaServer.clients.forEach((client) => {
-                        if (client !== ws && client.readyState === WebSocket.OPEN) {
-                            const clientPath = client.upgradeReq.url.replace('/', '');
-                            if (clientPath === 'transcript' || clientPath === 'all') {
+                        if (client !== ws && client.readyState === WebSocket.OPEN && client.pathname) {
+                            if (client.pathname === '/transcript' || client.pathname === '/all') {
                                 client.send(JSON.stringify(message));
                             }
                         }
