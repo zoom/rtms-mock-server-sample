@@ -106,7 +106,7 @@ router.post("/api/send-webhook", async (req, res) => {
                 object: {
                     meeting_uuid: meetingInfo.meeting_uuid,
                     rtms_stream_id: meetingInfo.rtms_stream_id,
-                    server_urls: "wss://testzoom.replit.app",
+                    server_urls: "wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev",
                 },
             },
         },
