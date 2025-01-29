@@ -802,13 +802,11 @@ function streamAudio(ws, audioFile) {
                 const encodedData = chunk.toString("base64");
 
                 const message = JSON.stringify({
-                    msg_type: "MEDIA_DATA",
+                    msg_type: "MEDIA_DATA_AUDIO",
                     content: {
                         user_id: 0,
-                        media_type: "AUDIO",
                         data: encodedData,
-                        timestamp: Date.now(),
-                        sequence: chunkIndex,
+                        timestamp: Date.now()
                     },
                 });
 
@@ -851,14 +849,11 @@ function streamVideo(ws, videoFile) {
 
                 ws.send(
                     JSON.stringify({
-                        msg_type: "MEDIA_DATA",
+                        msg_type: "MEDIA_DATA_VIDEO",
                         content: {
                             user_id: 0,
-                            media_type: "VIDEO",
                             data: chunk.toString("base64"),
-                            timestamp: Date.now(),
-                            sequence: chunkIndex,
-                            is_last: chunkIndex === totalChunks - 1,
+                            timestamp: Date.now()
                         },
                     }),
                 );
