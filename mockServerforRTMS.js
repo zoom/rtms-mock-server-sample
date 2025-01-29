@@ -316,7 +316,7 @@ function loadCredentials() {
         const parsedData = JSON.parse(data);
         const authCreds = parsedData.auth_credentials || [];
         const streamInfo = parsedData.stream_meeting_info || [];
-        
+
         return streamInfo.map(stream => {
             const auth = authCreds.find(cred => cred.accountId === stream.accountId) || {};
             return {
@@ -373,11 +373,13 @@ function handleSignalingHandshake(ws, message) {
     }
 
     // Get credentials including client_id for signature validation
-    const credentials = loadCredentials();
-    const matchingCred = credentials.find(
-        (cred) =>
-            cred.meeting_uuid === meeting_uuid &&
-            cred.rtms_stream_id === rtms_stream_id,
+    const data = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "rtms_credentials.json"), "utf8"));
+    const streamInfo = data.stream_meeting_info.find(info => 
+        info.meeting_uuid === meeting_uuid && 
+        info.rtms_stream_id === rtms_stream_id
+    );
+    const matchingCred = data.auth_credentials.find(cred => 
+        cred.accountId === streamInfo?.accountId
     );
 
     if (!matchingCred) {
