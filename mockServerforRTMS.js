@@ -3,6 +3,13 @@ const express = require("express");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+
+function calculateSignature(clientId, meetingUuid, rtmsStreamId, clientSecret) {
+    const message = `${clientId},${meetingUuid},${rtmsStreamId}`;
+    return crypto.createHmac("sha256", clientSecret)
+        .update(message)
+        .digest("hex");
+}
 const { exec } = require("child_process");
 const webhookRouter = require("./webhookHandler"); // Added webhook router
 
