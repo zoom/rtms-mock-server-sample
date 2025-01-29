@@ -1168,7 +1168,8 @@ const DEFAULT_VIDEO_PARAMS = {
 };
 
 function validateMediaParams(params) {
-    if (!params) return false;
+    // If no params provided, use defaults
+    if (!params) return true;
 
     if (params.audio) {
         // Validate audio content type
