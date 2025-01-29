@@ -63,35 +63,35 @@
                 video: null,
                 audio: null
             };
-            
+
             async function startMediaStream(serverUrl) {
                 const video = document.getElementById('meetingVideo');
                 video.style.display = 'block';
-                
+
                 try {
                     // Request access to camera and microphone
                     mediaStream = await navigator.mediaDevices.getUserMedia({ 
                         video: true,
                         audio: true 
                     });
-                    
+
                     // Display local video feed
                     video.srcObject = mediaStream;
                     await video.play();
-                    
+
                     mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
-                
+
                     mediaSocket.onopen = () => {
                         console.log('Connected to media server');
                         document.getElementById('videoContainer').style.display = 'block';
-                        
+
                         // Setup video recorder
                         const videoTrack = mediaStream.getVideoTracks()[0];
                         const videoStream = new MediaStream([videoTrack]);
                         mediaRecorders.video = new MediaRecorder(videoStream, {
                             mimeType: 'video/webm;codecs=vp8'
                         });
-                        
+
                         mediaRecorders.video.ondataavailable = (event) => {
                             if (event.data.size > 0) {
                                 const reader = new FileReader();
@@ -109,14 +109,14 @@
                                 reader.readAsDataURL(event.data);
                             }
                         };
-                        
+
                         // Setup audio recorder
                         const audioTrack = mediaStream.getAudioTracks()[0];
                         const audioStream = new MediaStream([audioTrack]);
                         mediaRecorders.audio = new MediaRecorder(audioStream, {
                             mimeType: 'audio/webm'
                         });
-                        
+
                         mediaRecorders.audio.ondataavailable = (event) => {
                             if (event.data.size > 0) {
                                 const reader = new FileReader();
@@ -134,7 +134,7 @@
                                 reader.readAsDataURL(event.data);
                             }
                         };
-                        
+
                         // Start recording with 100ms intervals
                         mediaRecorders.video.start(100);
                         mediaRecorders.audio.start(100);
@@ -143,8 +143,20 @@
                     mediaSocket.onmessage = (event) => {
                         const message = JSON.parse(event.data);
                         console.log("Received message:", message.msg_type);
+
+                        if (message.msg_type === "MEDIA_DATA_VIDEO") {
+                            // Handle incoming video data
+                            const video = document.getElementById('meetingVideo');
+                            const blob = new Blob([atob(message.content.data)], { type: 'video/webm;codecs=vp8' });
+                            video.src = URL.createObjectURL(blob);
+                        } else if (message.msg_type === "MEDIA_DATA_AUDIO") {
+                            // Handle incoming audio data
+                            const audio = document.getElementById('meetingAudio');
+                            const blob = new Blob([atob(message.content.data)], { type: 'audio/webm' });
+                            audio.src = URL.createObjectURL(blob);
+                        }
                     };
-                    
+
                 } catch (err) {
                     console.error("Error accessing media devices:", err);
                 }
@@ -181,7 +193,7 @@
             async function sendWebhook() {
                 const webhookUrl = document.getElementById("webhookUrl").value;
                 const responseDiv = document.getElementById("response");
-                
+
                 try {
                     const response = await fetch("/api/send-webhook", {
                         method: "POST",
@@ -193,61 +205,7 @@
 
                     const data = await response.json();
                     responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-                    
-                    // Start media stream after successful webhook
-                    if (data.success && data.sent.payload.payload.object.server_urls) {
-                        startMediaStream(data.sent.payload.payload.object.server_urls);
-                    }
-                } catch (error) {
-                    responseDiv.innerHTML = `Error: ${error.message}`;
-                }
-            }
-        </script>
-            async function validateWebhook() {
-                const webhookUrl = document.getElementById("webhookUrl").value;
-                const responseDiv = document.getElementById("response");
-                const sendBtn = document.getElementById("sendBtn");
 
-                try {
-                    const response = await fetch("/api/validate-webhook", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({ webhookUrl }),
-                    });
-
-                    const data = await response.json();
-                    if (data.success) {
-                        responseDiv.innerHTML =
-                            "Webhook validated successfully!";
-                        sendBtn.disabled = false;
-                    } else {
-                        responseDiv.innerHTML = `Validation failed: ${data.error}`;
-                        sendBtn.disabled = true;
-                    }
-                } catch (error) {
-                    responseDiv.innerHTML = `Error: ${error.message}`;
-                    sendBtn.disabled = true;
-                }
-            }
-
-            async function sendWebhook() {
-                const webhookUrl = document.getElementById("webhookUrl").value;
-                const responseDiv = document.getElementById("response");
-                
-                try {
-                    const response = await fetch("/api/send-webhook", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({ webhookUrl }),
-                    });
-
-                    const data = await response.json();
-                    responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-                    
                     // Start media stream after successful webhook
                     if (data.success && data.sent.payload.payload.object.server_urls) {
                         startMediaStream(data.sent.payload.payload.object.server_urls);

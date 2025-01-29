@@ -713,11 +713,16 @@ function startMediaStreams(ws, channel) {
     ws.on('message', (data) => {
         try {
             const message = JSON.parse(data);
+            console.log("Received message on media channel:", message.msg_type);
+            
             if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO") {
-                // Relay the media data to other connected clients
-                wss.clients.forEach((client) => {
-                    if (client !== ws && client.readyState === WebSocket.OPEN) {
-                        client.send(data);
+                // Log media data receipt
+                console.log(`Received ${message.msg_type} from client`);
+                
+                // Relay the media data to all connected clients
+                mediaServer.clients.forEach((client) => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(message));
                     }
                 });
             }
