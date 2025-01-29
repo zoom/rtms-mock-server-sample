@@ -1,0 +1,199 @@
+const express = require('express');
+const crypto = require('crypto');
+const WebSocket = require('ws');
+
+const app = express();
+const PORT = 8000;
+
+// Middleware to parse JSON body
+app.use(express.json());
+
+// Configuration - Replace with actual values
+const ZOOM_SECRET_TOKEN = 'DyBoLm8OZoJT2Pi3-kY2px';
+const CLIENT_SECRET = 'YZnKVUufg7N18Oej6gHHqNWc7CG5jQ6N';
+
+// Function to generate a signature
+function generateSignature(clientId, meetingUuid, streamId, secret) {
+    const message = `${clientId},${meetingUuid},${streamId}`;
+    return crypto.createHmac("sha256", secret).update(message).digest("hex");
+}
+
+// Webhook endpoint
+app.post('/zoom-webhook', (req, res) => {
+    console.log('📩 Received request:', JSON.stringify(req.body, null, 2));
+
+    const { event, payload } = req.body;
+
+    // 🔹 Handle Zoom Webhook Endpoint Validation
+    if (event === 'endpoint.url_validation' && payload?.plainToken) {
+        console.log('🔑 Processing Zoom endpoint validation...');
+        const hashForValidate = crypto.createHmac('sha256', ZOOM_SECRET_TOKEN)
+            .update(payload.plainToken)
+            .digest('hex');
+
+        console.log(`✅ Validation response:`, {
+            plainToken: payload.plainToken,
+            encryptedToken: hashForValidate
+        });
+
+        return res.json({
+            plainToken: payload.plainToken,
+            encryptedToken: hashForValidate
+        });
+    }
+
+    // 🔹 Handle RTMS Event (meeting.rtms.started)
+    if (payload?.event === 'meeting.rtms.started' && payload?.payload?.object) {
+        console.log('✅ Processing RTMS Event: meeting.rtms.started');
+
+        try {
+            const {
+                clientId,
+                payload: {
+                    event: rtmsEvent, // Correctly extract event name
+                    payload: {
+                        operator_id,
+                        object: { meeting_uuid, rtms_stream_id, server_urls }
+                    }
+                }
+            } = req.body;
+
+            console.log('🔹 Extracted RTMS Data:', {
+                rtmsEvent,
+                clientId,
+                meeting_uuid,
+                rtms_stream_id,
+                server_urls
+            });
+
+            // Establish WebSocket connection
+            connectToRTMSWebSocket(clientId, meeting_uuid, rtms_stream_id, server_urls);
+        } catch (error) {
+            console.error('❌ Error processing RTMS event:', error);
+        }
+    } 
+    // 🔹 Handle Normal Zoom Events
+    else if (event) {
+        console.log(`🔹 Processing Zoom event: ${event}`);
+    } 
+    // 🔹 Unknown Event Type
+    else {
+        console.log("⚠️ Received an event but couldn't determine the type.");
+    }
+
+    res.sendStatus(200);
+});
+
+// Function to connect to RTMS WebSocket server
+function connectToRTMSWebSocket(clientId, meetingUuid, streamId, serverUrl) {
+    console.log(`🔗 Connecting to RTMS WebSocket server: ${serverUrl}`);
+
+    const ws = new WebSocket(serverUrl, { rejectUnauthorized: false });
+
+    const connectionTimeout = setTimeout(() => {
+        console.error('❌ Connection to WebSocket server timed out.');
+        process.exit(1);
+    }, 10000); // 10 seconds timeout
+
+    ws.on("open", () => {
+        clearTimeout(connectionTimeout);
+        console.log("✅ Connected to WebSocket server");
+
+        const signature = generateSignature(clientId, meetingUuid, streamId, CLIENT_SECRET);
+
+        const handshakeMessage = {
+            msg_type: "SIGNALING_HAND_SHAKE_REQ",
+            protocol_version: 1,
+            meeting_uuid: meetingUuid,
+            rtms_stream_id: streamId,
+            signature: signature
+        };
+
+        console.log("📤 Sending handshake message:", JSON.stringify(handshakeMessage, null, 2));
+        ws.send(JSON.stringify(handshakeMessage));
+    });
+
+    ws.on("message", (data) => {
+        try {
+            const message = JSON.parse(data);
+            console.log("📩 Received message from RTMS server:", JSON.stringify(message, null, 2));
+
+            if (message.msg_type === "SIGNALING_HAND_SHAKE_RESP" && message.status_code === "STATUS_OK") {
+                const mediaServerUrls = message.media_server.server_urls;
+                console.log("📡 Media server URLs received:", mediaServerUrls);
+                connectToMediaWebSocket(mediaServerUrls.all, clientId, meetingUuid, streamId);
+            } else if (message.status_code === "STATUS_ERROR") {
+                console.error("❌ Error from signaling server:", message.reason);
+            }
+        } catch (error) {
+            console.error("❌ Error parsing RTMS server message:", error);
+        }
+    });
+
+    ws.on("error", (error) => {
+        console.error("❌ RTMS WebSocket error:", error);
+    });
+
+    ws.on("close", (code, reason) => {
+        console.log("🔴 RTMS WebSocket closed:", code, reason.toString());
+    });
+}
+
+// Function to connect to Media WebSocket server
+function connectToMediaWebSocket(endpoint, clientId, meetingUuid, streamId) {
+    console.log(`🔗 Connecting to Media WebSocket server: ${endpoint}`);
+
+    const mediaWs = new WebSocket(endpoint, { rejectUnauthorized: false });
+
+    mediaWs.on("open", () => {
+        console.log("✅ Connected to Media WebSocket server:", endpoint);
+
+        const mediaSignature = generateSignature(clientId, meetingUuid, streamId, CLIENT_SECRET);
+
+        const dataHandshakeMessage = {
+            msg_type: "DATA_HAND_SHAKE_REQ",
+            protocol_version: 1,
+            meeting_uuid: meetingUuid,
+            rtms_stream_id: streamId,
+            signature: mediaSignature,
+            payload_encryption: false
+        };
+
+        console.log("📤 Sending data handshake message:", JSON.stringify(dataHandshakeMessage, null, 2));
+        mediaWs.send(JSON.stringify(dataHandshakeMessage));
+    });
+
+    mediaWs.on("message", (data) => {
+        console.log("📩 Received raw message from media server:", data);
+        try {
+            const message = JSON.parse(data);
+            console.log("📩 Received parsed message from media server:", JSON.stringify(message, null, 2));
+        } catch (error) {
+            console.error("❌ Error parsing media message:", error);
+        }
+    });
+
+    mediaWs.on("error", (error) => {
+        console.error(`❌ Media WebSocket error while connecting to ${endpoint}:`, error);
+    });
+
+    mediaWs.on("close", (code, reason) => {
+        console.log("🔴 Media WebSocket closed:", code, reason.toString());
+    });
+}
+
+// Start the server
+app.listen(PORT, () => {
+    console.log(`🚀 Zoom Webhook listening on port ${PORT}`);
+});
+
+// Keep the process alive
+setInterval(() => {
+    console.log("🔄 Still connected...");
+}, 5000);
+
+// Handle process termination
+process.on("SIGINT", () => {
+    console.log("⚠️ Closing WebSocket connections...");
+    process.exit();
+});
