@@ -701,54 +701,30 @@ function handleDataHandshake(ws, message, channel) {
     startMediaStreams(ws, channel);
 }
 
-// Start streaming media data
+// Start media connection
 function startMediaStreams(ws, channel) {
-    // Get random video file from video_files directory
-    const videoFiles = fs
-        .readdirSync(path.join(DATA_DIR, "video_files"))
-        .filter((file) => file.endsWith(".mp4"));
-    const randomVideo =
-        videoFiles[Math.floor(Math.random() * videoFiles.length)];
-
-    const videoFile = path.join(DATA_DIR, "video_files", randomVideo);
-    const audioFile = videoFile; // Using same file for audio
-    const transcriptFile = path.join(DATA_DIR, "audio1241999856.txt");
-
-    console.log("Media file paths:");
-    console.log("Audio file path:", audioFile);
-    console.log("Video file path:", videoFile);
-    console.log("Transcript file path:", transcriptFile);
-    console.log("DATA_DIR contents:", fs.readdirSync(DATA_DIR));
-
     if (!streamStartTime) {
         streamStartTime = Date.now();
     }
 
-    let audioStream, videoStream;
+    console.log("Starting media connection for channel:", channel);
 
-    // Handle media streaming
-    console.log("Starting media stream for channel:", channel);
-    console.log("Directory contents:", fs.readdirSync(PCM_DIR));
-
-    if (channel === "audio" || channel === "all") {
-        if (fs.existsSync(audioFile)) {
-            console.log("Found audio file, starting stream");
-            audioStartTime = Date.now();
-            streamAudio(ws, audioFile);
-        } else {
-            console.error("Audio PCM file not found:", audioFile);
-            console.log("Looking for file:", audioFile);
+    // Set up message handler for incoming media data
+    ws.on('message', (data) => {
+        try {
+            const message = JSON.parse(data);
+            if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO") {
+                // Relay the media data to other connected clients
+                wss.clients.forEach((client) => {
+                    if (client !== ws && client.readyState === WebSocket.OPEN) {
+                        client.send(data);
+                    }
+                });
+            }
+        } catch (error) {
+            console.error("Error processing media data:", error);
         }
-    }
-
-    // Handle video streaming
-    if (channel === "video" || channel === "all") {
-        if (fs.existsSync(videoFile)) {
-            streamVideo(ws, videoFile);
-        } else {
-            console.error("Video file not found:", videoFile);
-        }
-    }
+    });
 
     // Handle transcript streaming
     if (channel === "transcript" || channel === "all") {
@@ -797,98 +773,19 @@ function startMediaStreams(ws, channel) {
 }
 
 // Helper functions to split up the functionality
-function streamAudio(ws, audioFile) {
-    console.log("Starting audio stream from:", audioFile);
+// Function to relay media data between clients
+function relayMediaData(ws, data) {
     try {
-        const chunks = fs.readFileSync(audioFile);
-        console.log("Successfully read audio file. Size:", chunks.length);
-
-        const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
-        let chunkIndex = 0;
-        const totalChunks = Math.ceil(chunks.length / chunkSize);
-
-        console.log(`Total audio chunks: ${totalChunks}`);
-
-        // Send stream state update
-        sendStreamStateUpdate(ws, "ACTIVE");
-
-        const intervalId = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
-                const start = chunkIndex * chunkSize;
-                const end = Math.min(start + chunkSize, chunks.length);
-                const chunk = chunks.slice(start, end);
-
-                // Make sure we're encoding to Base64 without any weird padding issues
-                const encodedData = chunk.toString("base64");
-
-                const message = JSON.stringify({
-                    msg_type: "MEDIA_DATA_AUDIO",
-                    content: {
-                        user_id: 0,
-                        data: encodedData,
-                        timestamp: Date.now()
-                    },
-                });
-
-                console.log(
-                    `Sending chunk ${chunkIndex}, size: ${chunk.length}`,
-                );
-                ws.send(message, (error) => {
-                    if (error) console.error("Error sending chunk:", error);
-                });
-
-                chunkIndex++;
-            } else if (chunkIndex >= totalChunks) {
-                clearInterval(intervalId);
-            }
-        }, 100); // Send every 100ms
-
-        ws.intervals = ws.intervals || [];
-        ws.intervals.push(intervalId);
+        const message = JSON.parse(data);
+        if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO") {
+            wss.clients.forEach((client) => {
+                if (client !== ws && client.readyState === WebSocket.OPEN) {
+                    client.send(data);
+                }
+            });
+        }
     } catch (error) {
-        console.error("Error reading audio file:", error);
-        return;
-    }
-}
-// Add this function after streamAudio function
-function streamVideo(ws, videoFile) {
-    try {
-        console.log("Starting video stream from:", videoFile);
-        const videoData = fs.readFileSync(videoFile);
-        const chunkSize = 8192; // Larger chunks for video
-        let chunkIndex = 0;
-        const totalChunks = Math.ceil(videoData.length / chunkSize);
-
-        console.log(`Total video chunks: ${totalChunks}`);
-
-        const intervalId = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
-                const start = chunkIndex * chunkSize;
-                const end = Math.min(start + chunkSize, videoData.length);
-                const chunk = videoData.slice(start, end);
-
-                ws.send(
-                    JSON.stringify({
-                        msg_type: "MEDIA_DATA_VIDEO",
-                        content: {
-                            user_id: 0,
-                            data: chunk.toString("base64"),
-                            timestamp: Date.now()
-                        },
-                    }),
-                );
-
-                chunkIndex++;
-            } else if (chunkIndex >= totalChunks) {
-                clearInterval(intervalId);
-            }
-        }, 33); // ~30fps
-
-        ws.intervals = ws.intervals || [];
-        ws.intervals.push(intervalId);
-    } catch (error) {
-        console.error("Error streaming video:", error);
-        ws.close(1011, "Error streaming video");
+        console.error("Error relaying media data:", error);
     }
 }
 
