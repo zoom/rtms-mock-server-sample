@@ -528,11 +528,19 @@ function setupMediaWebSocketServer(wss) {
                         "Processing DATA_HAND_SHAKE_REQ on media channel",
                     );
                     handleDataHandshake(ws, message, path);
-                } else if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO") {
+                } else if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO" || message.msg_type === "MEDIA_DATA_TRANSCRIPT") {
                     // Broadcast media data to all connected clients
                     mediaServer.clients.forEach((client) => {
-                        if (client !== ws && client.readyState === WebSocket.OPEN) {
-                            client.send(JSON.stringify(message));
+                        if (client.readyState === WebSocket.OPEN) {
+                            const clientPath = client.upgradeReq.url.replace('/', '');
+
+                            // Send data based on socket path
+                            if (clientPath === 'all' || 
+                                (clientPath === 'audio' && message.msg_type === 'MEDIA_DATA_AUDIO') ||
+                                (clientPath === 'video' && message.msg_type === 'MEDIA_DATA_VIDEO') ||
+                                (clientPath === 'transcript' && message.msg_type === 'MEDIA_DATA_TRANSCRIPT')) {
+                                client.send(JSON.stringify(message));
+                            }
                         }
                     });
                 }
@@ -722,14 +730,22 @@ function startMediaStreams(ws, channel) {
             const message = JSON.parse(data);
             console.log("Received message on media channel:", message.msg_type);
 
-            if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO") {
+            if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO" || message.msg_type === "MEDIA_DATA_TRANSCRIPT") {
                 // Log media data receipt
                 console.log(`Received ${message.msg_type} from client`);
 
                 // Relay the media data to all connected clients
                 mediaServer.clients.forEach((client) => {
                     if (client.readyState === WebSocket.OPEN) {
-                        client.send(JSON.stringify(message));
+                        const clientPath = client.upgradeReq.url.replace('/', '');
+
+                        // Send data based on socket path
+                        if (clientPath === 'all' || 
+                            (clientPath === 'audio' && message.msg_type === 'MEDIA_DATA_AUDIO') ||
+                            (clientPath === 'video' && message.msg_type === 'MEDIA_DATA_VIDEO') ||
+                            (clientPath === 'transcript' && message.msg_type === 'MEDIA_DATA_TRANSCRIPT')) {
+                            client.send(JSON.stringify(message));
+                        }
                     }
                 });
             }
