@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>RTMS Webhook Sender</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+        button {
+            background-color: #0066cc;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0052a3;
+        }
+    </style>
+</head>
+<body>
+    <h2>RTMS Webhook Sender</h2>
+    <div class="form-group">
+        <label>Webhook URL:</label>
+        <input type="text" id="webhookUrl" placeholder="Enter webhook URL">
+    </div>
+    <button onclick="sendWebhook()">Send Webhook</button>
+    <div id="response" style="margin-top: 20px;"></div>
+
+    <script>
+        async function sendWebhook() {
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            const responseDiv = document.getElementById('response');
+            
+            try {
+                const response = await fetch('/api/send-webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ webhookUrl })
+                });
+                
+                const data = await response.json();
+                responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            } catch (error) {
+                responseDiv.innerHTML = `Error: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

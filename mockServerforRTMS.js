@@ -4,10 +4,12 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const { exec } = require("child_process");
+const webhookRouter = require("./webhookHandler"); // Added webhook router
 
 // Port configuration
 const HANDSHAKE_PORT = 9092;
 const MEDIA_STREAM_PORT = 8081;
+const WEBHOOK_PORT = 3000; // Added webhook port
 
 // Logging function
 function logWebSocketMessage(direction, type, message, path = "") {
@@ -1021,7 +1023,7 @@ const RTMS_STOP_REASON = {
     STOP_BC_MEETING_ENDED: "STOP_BC_MEETING_ENDED",
     STOP_BC_STREAM_CANCELED: "STOP_BC_STREAM_CANCELED",
     STOP_BC_ALL_APPS_DISABLED: "STOP_BC_ALL_APPS_DISABLED",
-    STOP_BC_INTERNAL_EXCEPTION: "STOP_BC_INTERNAL_EXCEPTION",
+STOP_BC_INTERNAL_EXCEPTION: "STOP_BC_INTERNAL_EXCEPTION",
     STOP_BC_CONNECTION_TIMEOUT: "STOP_BC_CONNECTION_TIMEOUT",
     STOP_BC_CONNECTION_INTERRUPTED: "STOP_BC_CONNECTION_INTERRUPTED",
     STOP_BC_CONNECTION_CLOSED_BY_CLIENT: "STOP_BC_CONNECTION_CLOSED_BY_CLIENT",
@@ -1171,3 +1173,15 @@ function validateMediaParams(params) {
 
     return true;
 }
+
+// Integrate the webhook router
+handshakeApp.use("/webhook", webhookRouter);
+
+// Start webhook server
+const webhookApp = express();
+const webhookServer = require("http").createServer(webhookApp);
+webhookServer.listen(WEBHOOK_PORT, "0.0.0.0", () => {
+    console.log(`Webhook server running on 0.0.0.0:${WEBHOOK_PORT}`);
+});
+
+// ... rest of the file remains unchanged
