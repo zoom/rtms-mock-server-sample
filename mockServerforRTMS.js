@@ -512,6 +512,7 @@ function handleSessionStateRequest(ws, message) {
 function setupMediaWebSocketServer(wss) {
     wss.on("connection", (ws, req) => {
         console.log("Media server connection established");
+        ws.rtmsSessionId = crypto.randomBytes(10).toString('hex');
         console.log("Connection URL:", req.url);
         console.log("Connection headers:", req.headers);
 

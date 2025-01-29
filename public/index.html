@@ -50,6 +50,9 @@
         <button onclick="sendWebhook()" id="sendBtn" disabled>
             Send Webhook
         </button>
+        <button onclick="pauseSession()" id="pauseBtn" disabled>Pause</button>
+        <button onclick="resumeSession()" id="resumeBtn" disabled>Resume</button>
+        <button onclick="stopSession()" id="stopBtn" disabled>Stop</button>
         <div id="videoContainer" style="margin-top: 20px; display: none;">
             <video id="meetingVideo" width="640" height="360" autoplay controls></video>
             <audio id="meetingAudio" autoplay></audio>
@@ -65,6 +68,14 @@
                 audio: null
             };
             let recognition = null;
+            let sessionState = "STOPPED"; // Add session state variable
+            const SESSION_STATE_UPDATE = "SESSION_STATE_UPDATE";
+            const ACTION_BY_USER = "ACTION_BY_USER";
+            const STARTED = "STARTED";
+            const PAUSED = "PAUSED";
+            const RESUMED = "RESUMED";
+            const STOPPED = "STOPPED";
+
 
             async function startMediaStream(serverUrl) {
                 const video = document.getElementById('meetingVideo');
@@ -237,11 +248,80 @@
 
                     if (data.success && data.sent.payload.payload.object.server_urls) {
                         startMediaStream(data.sent.payload.payload.object.server_urls);
+                        sessionState = STARTED; // Update session state after successful start
                     }
                 } catch (error) {
                     responseDiv.innerHTML = `Error: ${error.message}`;
                 }
             }
+
+            function sendSessionStateUpdate(state, stopReason) {
+                if (!mediaSocket || mediaSocket.readyState !== WebSocket.OPEN) return; //check connection
+
+                const rmtsSessionId = "xxxxxxxxxx"; // Replace with actual session ID generation
+                const timestamp = Date.now();
+                const message = {
+                    msg_type: SESSION_STATE_UPDATE,
+                    rmts_session_id: rmtsSessionId,
+                    state: state,
+                    stop_reason: stopReason,
+                    timestamp: timestamp
+                };
+                mediaSocket.send(JSON.stringify(message));
+            }
+
+            function pauseSession() {
+                if (sessionState !== STARTED) return; //only pause if started
+                sessionState = PAUSED;
+                mediaRecorders.video.stop();
+                mediaRecorders.audio.stop();
+                sendSessionStateUpdate(PAUSED, ACTION_BY_USER);
+                document.getElementById('resumeBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+            }
+
+            function resumeSession() {
+                if (sessionState !== PAUSED) return; //only resume if paused
+                sessionState = RESUMED;
+                mediaRecorders.video.start(100);
+                mediaRecorders.audio.start(100);
+                sendSessionStateUpdate(RESUMED, ACTION_BY_USER);
+                document.getElementById('pauseBtn').disabled = false;
+                document.getElementById('resumeBtn').disabled = true;
+            }
+
+            function stopSession() {
+                sessionState = STOPPED;
+                if (mediaSocket) {
+                    sendSessionStateUpdate(STOPPED, ACTION_BY_USER);
+                    mediaSocket.close();
+                }
+                if (recognition) recognition.stop();
+                if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('resumeBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('videoContainer').style.display = 'none';
+            }
+
+            mediaSocket.onclose = () => {
+                console.log('Media connection closed');
+                if (recognition) {
+                    recognition.stop();
+                }
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('resumeBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+            };
+
+            // Enable control buttons after successful connection
+            document.getElementById('pauseBtn').disabled = false;
+            document.getElementById('resumeBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('sendBtn').disabled = true;
+
         </script>
     </body>
 </html>
