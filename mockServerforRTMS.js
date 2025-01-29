@@ -635,15 +635,15 @@ function handleDataHandshake(ws, message, channel) {
 
 // Start streaming media data
 function startMediaStreams(ws, channel) {
-    const audioFile = path.join(PCM_DIR, "audio1241999856.pcm");
-    const videoFile = path.join(PCM_DIR, "video1241999856.dfpwm");
-    const transcriptFile = path.join(PCM_DIR, "audio1241999856.txt");
+    const audioFile = path.join(DATA_DIR, "video1241999856.mp4");
+    const videoFile = path.join(DATA_DIR, "video1241999856.mp4");
+    const transcriptFile = path.join(DATA_DIR, "audio1241999856.txt");
 
-    console.log("Checking media files:");
-    console.log("Audio file exists:", fs.existsSync(audioFile));
-    console.log("Video file exists:", fs.existsSync(videoFile));
-    console.log("Transcript file exists:", fs.existsSync(transcriptFile));
-    console.log("PCM_DIR contents:", fs.readdirSync(PCM_DIR));
+    console.log("Media file paths:");
+    console.log("Audio file path:", audioFile);
+    console.log("Video file path:", videoFile);
+    console.log("Transcript file path:", transcriptFile);
+    console.log("DATA_DIR contents:", fs.readdirSync(DATA_DIR));
 
     if (!streamStartTime) {
         streamStartTime = Date.now();
