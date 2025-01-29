@@ -546,13 +546,21 @@ function handleDataHandshake(ws, message, channel) {
         return;
     }
 
-    // Get credentials for signature validation
-    const credentials = loadCredentials();
-    const matchingCred = credentials.find(
-        (cred) =>
-            cred.meeting_uuid === meeting_uuid &&
-            cred.rtms_stream_id === rtms_stream_id,
-    );
+    // Load credentials from rtms_credentials.json directly
+    const data = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "rtms_credentials.json"), "utf8"));
+    
+    // First find the matching credential that can validate the signature
+    const matchingCred = data.auth_credentials.find(cred => {
+        try {
+            const testSignature = crypto
+                .createHmac("sha256", cred.client_secret)
+                .update(`${cred.client_id},${meeting_uuid},${rtms_stream_id}`)
+                .digest("hex");
+            return testSignature === signature;
+        } catch (err) {
+            return false;
+        }
+    });
 
     if (!matchingCred) {
         ws.send(
