@@ -58,92 +58,33 @@
 
         <script>
             let mediaSocket;
-            let mediaRecorder;
-            let mediaStream;
+            let mediaSource;
+            let sourceBuffer;
             
-            async function startMediaStream(serverUrl) {
+            function startMediaStream(serverUrl) {
                 const video = document.getElementById('meetingVideo');
                 video.style.display = 'block';
                 
-                try {
-                    mediaStream = await navigator.mediaDevices.getUserMedia({ 
-                        video: true,
-                        audio: true 
-                    });
-                    
-                    video.srcObject = mediaStream;
-                    await video.play();
-                    
-                    // Start sending media data through websocket
-                    mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
+                mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
                 
                 mediaSocket.onopen = () => {
-                        console.log('Connected to media server');
-                        document.getElementById('videoContainer').style.display = 'block';
-                        
-                        // Setup MediaRecorder for video
-                        const videoTrack = mediaStream.getVideoTracks()[0];
-                        const videoStream = new MediaStream([videoTrack]);
-                        const videoRecorder = new MediaRecorder(videoStream, {
-                            mimeType: 'video/webm;codecs=vp8'
-                        });
-                        
-                        videoRecorder.ondataavailable = (event) => {
-                            if (event.data.size > 0) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                    const base64data = reader.result.split(',')[1];
-                                    mediaSocket.send(JSON.stringify({
-                                        msg_type: "MEDIA_DATA_VIDEO",
-                                        content: {
-                                            user_id: 0,
-                                            data: base64data,
-                                            timestamp: Date.now()
-                                        }
-                                    }));
-                                };
-                                reader.readAsDataURL(event.data);
-                            }
-                        };
-                        
-                        // Setup MediaRecorder for audio
-                        const audioTrack = mediaStream.getAudioTracks()[0];
-                        const audioStream = new MediaStream([audioTrack]);
-                        const audioRecorder = new MediaRecorder(audioStream, {
-                            mimeType: 'audio/webm'
-                        });
-                        
-                        audioRecorder.ondataavailable = (event) => {
-                            if (event.data.size > 0) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                    const base64data = reader.result.split(',')[1];
-                                    mediaSocket.send(JSON.stringify({
-                                        msg_type: "MEDIA_DATA_AUDIO",
-                                        content: {
-                                            user_id: 0,
-                                            data: base64data,
-                                            timestamp: Date.now()
-                                        }
-                                    }));
-                                };
-                                reader.readAsDataURL(event.data);
-                            }
-                        };
-                        
-                        // Start recording with 100ms intervals
-                        videoRecorder.start(100);
-                        audioRecorder.start(100);
-                    };
+                    console.log('Connected to media server');
+                    document.getElementById('videoContainer').style.display = 'block';
+                };
 
-                    mediaSocket.onmessage = (event) => {
-                        const message = JSON.parse(event.data);
-                        console.log("Received media message:", message.msg_type);
-                    };
+                mediaSocket.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
                     
-                } catch (err) {
-                    console.error("Error accessing media devices:", err);
-                }
+                    if (message.msg_type === "MEDIA_DATA_VIDEO") {
+                        const videoData = atob(message.content.data);
+                        const videoBlob = new Blob([videoData], { type: 'video/mp4' });
+                        const videoUrl = URL.createObjectURL(videoBlob);
+                        const video = document.getElementById('meetingVideo');
+                        video.src = videoUrl;
+                        video.play().catch(e => console.error('Error playing video:', e));
+                    }
+                    
+                    if (message.msg_type === "MEDIA_DATA_AUDIO") {
                         const audioData = atob(message.content.data);
                         const audioBlob = new Blob([audioData], { type: 'audio/wav' });
                         const audioUrl = URL.createObjectURL(audioBlob);
