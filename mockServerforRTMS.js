@@ -388,7 +388,7 @@ function handleSignalingHandshake(ws, message) {
                 fps: 5,
             }
         };
-        
+
         message.media_params = media_params || defaultMediaParams;
 
     if (!meeting_uuid || !rtms_stream_id || !signature) {
@@ -528,6 +528,13 @@ function setupMediaWebSocketServer(wss) {
                         "Processing DATA_HAND_SHAKE_REQ on media channel",
                     );
                     handleDataHandshake(ws, message, path);
+                } else if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO") {
+                    // Broadcast media data to all connected clients
+                    mediaServer.clients.forEach((client) => {
+                        if (client !== ws && client.readyState === WebSocket.OPEN) {
+                            client.send(JSON.stringify(message));
+                        }
+                    });
                 }
             } catch (error) {
                 console.error(
@@ -714,11 +721,11 @@ function startMediaStreams(ws, channel) {
         try {
             const message = JSON.parse(data);
             console.log("Received message on media channel:", message.msg_type);
-            
+
             if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO") {
                 // Log media data receipt
                 console.log(`Received ${message.msg_type} from client`);
-                
+
                 // Relay the media data to all connected clients
                 mediaServer.clients.forEach((client) => {
                     if (client.readyState === WebSocket.OPEN) {
@@ -1143,5 +1150,3 @@ const webhookServer = require("http").createServer(webhookApp);
 webhookServer.listen(WEBHOOK_PORT, "0.0.0.0", () => {
     console.log(`Webhook server running on 0.0.0.0:${WEBHOOK_PORT}`);
 });
-
-// ... rest of the file remains unchanged
