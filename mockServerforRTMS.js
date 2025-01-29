@@ -754,45 +754,9 @@ function startMediaStreams(ws, channel) {
         }
     });
 
-    // Handle transcript streaming
+    // Transcript handling is now done through client-side speech recognition
     if (channel === "transcript" || channel === "all") {
-        try {
-            const transcriptFile = path.join(DATA_DIR, "audio1241999856.txt");
-            if (fs.existsSync(transcriptFile)) {
-                const transcripts = loadTranscriptsFromFile(transcriptFile);
-                let transcriptIndex = 0;
-
-                const intervalId = setInterval(() => {
-                    const currentTime = getCurrentPlaybackTime();
-
-                    while (
-                        transcriptIndex < transcripts.length &&
-                        transcripts[transcriptIndex].timestamp <= currentTime
-                    ) {
-                        if (ws.readyState === WebSocket.OPEN) {
-                            ws.send(
-                                JSON.stringify({
-                                    msg_type: "TRANSCRIPT_DATA",
-                                    text: transcripts[transcriptIndex].text,
-                                    timestamp:
-                                        transcripts[transcriptIndex].timestamp,
-                                }),
-                            );
-                        }
-                        transcriptIndex++;
-                    }
-
-                    if (transcriptIndex >= transcripts.length) {
-                        clearInterval(intervalId);
-                    }
-                }, 100); // Check every 100ms
-
-                ws.intervals = ws.intervals || [];
-                ws.intervals.push(intervalId);
-            }
-        } catch (error) {
-            console.error("Error streaming transcript:", error);
-        }
+        console.log("Transcript channel connected");
     }
 
     // Cleanup on connection close

@@ -149,6 +149,16 @@
                                 }
                             }
                             document.getElementById('transcript').innerText = transcript;
+                            
+                            // Send transcript data through websocket
+                            mediaSocket.send(JSON.stringify({
+                                msg_type: "MEDIA_DATA_TRANSCRIPT",
+                                content: {
+                                    user_id: 0,
+                                    data: transcript,
+                                    timestamp: Date.now()
+                                }
+                            }));
                         };
 
                         recognition.start();
