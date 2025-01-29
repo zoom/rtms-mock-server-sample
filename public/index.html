@@ -53,6 +53,7 @@
         <button onclick="pauseSession()" id="pauseBtn" disabled>Pause</button>
         <button onclick="resumeSession()" id="resumeBtn" disabled>Resume</button>
         <button onclick="stopSession()" id="stopBtn" disabled>Stop</button>
+        <button onclick="endMeeting()" id="endBtn" disabled>End Meeting</button>
         <div id="videoContainer" style="margin-top: 20px; display: none;">
             <video id="meetingVideo" width="640" height="360" autoplay controls></video>
             <audio id="meetingAudio" autoplay></audio>
@@ -373,8 +374,39 @@
             document.getElementById('pauseBtn').disabled = false;
             document.getElementById('resumeBtn').disabled = true;
             document.getElementById('stopBtn').disabled = false;
+            document.getElementById('endBtn').disabled = false;
             document.getElementById('sendBtn').disabled = true;
 
+            function endMeeting() {
+                // Send stream termination message
+                if (mediaSocket && mediaSocket.readyState === WebSocket.OPEN) {
+                    mediaSocket.send(JSON.stringify({
+                        msg_type: "SESSION_STATE_UPDATE",
+                        session_id: mediaSocket.rtmsSessionId,
+                        state: "STOPPED",
+                        stop_reason: "ACTION_BY_USER",
+                        timestamp: Date.now()
+                    }));
+                }
+
+                // Reset UI
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('resumeBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('endBtn').disabled = true;
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('videoContainer').style.display = 'none';
+
+                // Stop all streams and close connections
+                if (recognition) recognition.stop();
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                if (mediaRecorders.video) mediaRecorders.video.stop();
+                if (mediaRecorders.audio) mediaRecorders.audio.stop();
+                
+                sessionState = "STOPPED";
+            }
         </script>
     </body>
 </html>

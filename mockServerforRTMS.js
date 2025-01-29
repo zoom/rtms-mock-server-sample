@@ -538,6 +538,26 @@ function setupMediaWebSocketServer(wss) {
                         stop_reason: message.stop_reason,
                         timestamp: message.timestamp || Date.now()
                     }));
+
+                    // If session is stopped, terminate all connections
+                    if (message.state === "STOPPED") {
+                        // Send stream termination to all clients
+                        mediaServer.clients.forEach((client) => {
+                            if (client.readyState === WebSocket.OPEN) {
+                                client.send(JSON.stringify({
+                                    msg_type: "STREAM_STATE_UPDATE",
+                                    state: "TERMINATED",
+                                    reason: "STOP_BC_MEETING_ENDED",
+                                    timestamp: Date.now()
+                                }));
+                                client.close();
+                            }
+                        });
+                        // Close signaling websocket
+                        if (signalingWebsocket.readyState === WebSocket.OPEN) {
+                            signalingWebsocket.close();
+                        }
+                    }
                 }
 
                 if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
