@@ -816,6 +816,8 @@ function startMediaStreams(ws, channel) {
 
     // Cleanup on connection close
     ws.on("close", () => {
+        if (audioStream) audioStream.destroy();
+        if (videoStream) videoStream.destroy();
         clearAllIntervals(ws);
     });
 }
