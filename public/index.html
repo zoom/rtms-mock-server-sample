@@ -53,6 +53,7 @@
         <div id="videoContainer" style="margin-top: 20px; display: none;">
             <video id="meetingVideo" width="640" height="360" autoplay controls></video>
             <audio id="meetingAudio" autoplay></audio>
+            <div id="transcript"></div>
         </div>
         <div id="response" style="margin-top: 20px"></div>
 
@@ -63,19 +64,17 @@
                 video: null,
                 audio: null
             };
+            let recognition = null;
 
             async function startMediaStream(serverUrl) {
                 const video = document.getElementById('meetingVideo');
                 video.style.display = 'block';
 
                 try {
-                    // Request access to camera and microphone
                     mediaStream = await navigator.mediaDevices.getUserMedia({ 
                         video: true,
                         audio: true 
                     });
-
-                    // Display local video feed
                     video.srcObject = mediaStream;
                     await video.play();
 
@@ -85,7 +84,6 @@
                         console.log('Connected to media server');
                         document.getElementById('videoContainer').style.display = 'block';
 
-                        // Setup video recorder
                         const videoTrack = mediaStream.getVideoTracks()[0];
                         const videoStream = new MediaStream([videoTrack]);
                         mediaRecorders.video = new MediaRecorder(videoStream, {
@@ -110,7 +108,6 @@
                             }
                         };
 
-                        // Setup audio recorder
                         const audioTrack = mediaStream.getAudioTracks()[0];
                         const audioStream = new MediaStream([audioTrack]);
                         mediaRecorders.audio = new MediaRecorder(audioStream, {
@@ -135,9 +132,26 @@
                             }
                         };
 
-                        // Start recording with 100ms intervals
                         mediaRecorders.video.start(100);
                         mediaRecorders.audio.start(100);
+
+                        //Initialize Speech Recognition
+                        recognition = new webkitSpeechRecognition(); // For Chrome, Safari
+                        recognition.continuous = true;
+                        recognition.interimResults = true;
+                        recognition.lang = 'en-US'; // Set your desired language
+
+                        recognition.onresult = (event) => {
+                            let transcript = '';
+                            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                                if (event.results[i].isFinal) {
+                                    transcript += event.results[i][0].transcript;
+                                }
+                            }
+                            document.getElementById('transcript').innerText = transcript;
+                        };
+
+                        recognition.start();
                     };
 
                     mediaSocket.onmessage = (event) => {
@@ -145,15 +159,20 @@
                         console.log("Received message:", message.msg_type);
 
                         if (message.msg_type === "MEDIA_DATA_VIDEO") {
-                            // Handle incoming video data
                             const video = document.getElementById('meetingVideo');
                             const blob = new Blob([atob(message.content.data)], { type: 'video/webm;codecs=vp8' });
                             video.src = URL.createObjectURL(blob);
                         } else if (message.msg_type === "MEDIA_DATA_AUDIO") {
-                            // Handle incoming audio data
                             const audio = document.getElementById('meetingAudio');
                             const blob = new Blob([atob(message.content.data)], { type: 'audio/webm' });
                             audio.src = URL.createObjectURL(blob);
+                        }
+                    };
+
+                    mediaSocket.onclose = () => {
+                        console.log('Media connection closed');
+                        if (recognition) {
+                            recognition.stop();
                         }
                     };
 
@@ -206,7 +225,6 @@
                     const data = await response.json();
                     responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
 
-                    // Start media stream after successful webhook
                     if (data.success && data.sent.payload.payload.object.server_urls) {
                         startMediaStream(data.sent.payload.payload.object.server_urls);
                     }
