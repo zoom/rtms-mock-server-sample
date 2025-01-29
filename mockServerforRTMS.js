@@ -720,32 +720,45 @@ function streamAudio(ws, audioFile) {
         console.log(`Total audio chunks: ${totalChunks}`);
 
         const intervalId = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
+            if (ws.readyState !== WebSocket.OPEN) {
+                console.log("WebSocket closed, stopping audio stream");
+                clearInterval(intervalId);
+                return;
+            }
+
+            if (chunkIndex < totalChunks) {
                 const start = chunkIndex * chunkSize;
                 const end = Math.min(start + chunkSize, chunks.length);
                 const chunk = chunks.slice(start, end);
 
-                // Convert to Int16Array for proper audio format
-                const int16Array = new Int16Array(chunk.buffer, chunk.byteOffset, chunk.length / 2);
-                const base64Data = Buffer.from(int16Array.buffer).toString('base64');
+                try {
+                    // Convert to Int16Array for proper audio format
+                    const int16Array = new Int16Array(chunk.buffer, chunk.byteOffset, chunk.length / 2);
+                    const base64Data = Buffer.from(int16Array.buffer).toString('base64');
 
-                const message = JSON.stringify({
-                    msg_type: "MEDIA_DATA",
-                    content: {
-                        user_id: 0,
-                        media_type: "AUDIO",
-                        data: base64Data,
-                        timestamp: Date.now(),
-                        sequence: chunkIndex,
-                    },
-                });
+                    const message = JSON.stringify({
+                        msg_type: "MEDIA_DATA",
+                        content: {
+                            user_id: 0,
+                            media_type: "AUDIO",
+                            data: base64Data,
+                            timestamp: Date.now(),
+                            sequence: chunkIndex,
+                        },
+                    });
 
-                ws.send(message, (error) => {
-                    if (error) console.error("Error sending chunk:", error);
-                });
+                    ws.send(message, (error) => {
+                        if (error && error.code !== 'EPIPE') {
+                            console.error("Error sending chunk:", error);
+                        }
+                    });
 
-                chunkIndex++;
-            } else if (chunkIndex >= totalChunks) {
+                    chunkIndex++;
+                } catch (error) {
+                    console.error("Error processing chunk:", error);
+                    clearInterval(intervalId);
+                }
+            } else {
                 clearInterval(intervalId);
             }
         }, 10); // Send every 10ms for smoother audio
@@ -770,27 +783,43 @@ function streamVideo(ws, videoFile) {
         console.log(`Total video chunks: ${totalChunks}`);
 
         const intervalId = setInterval(() => {
-            if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
+            if (ws.readyState !== WebSocket.OPEN) {
+                console.log("WebSocket closed, stopping video stream");
+                clearInterval(intervalId);
+                return;
+            }
+
+            if (chunkIndex < totalChunks) {
                 const start = chunkIndex * chunkSize;
                 const end = Math.min(start + chunkSize, videoData.length);
                 const chunk = videoData.slice(start, end);
 
-                ws.send(
-                    JSON.stringify({
-                        msg_type: "MEDIA_DATA",
-                        content: {
-                            user_id: 0,
-                            media_type: "VIDEO",
-                            data: chunk.toString("base64"),
-                            timestamp: Date.now(),
-                            sequence: chunkIndex,
-                            is_last: chunkIndex === totalChunks - 1,
-                        },
-                    }),
-                );
+                try {
+                    ws.send(
+                        JSON.stringify({
+                            msg_type: "MEDIA_DATA",
+                            content: {
+                                user_id: 0,
+                                media_type: "VIDEO",
+                                data: chunk.toString("base64"),
+                                timestamp: Date.now(),
+                                sequence: chunkIndex,
+                                is_last: chunkIndex === totalChunks - 1,
+                            },
+                        }),
+                        (error) => {
+                            if (error && error.code !== 'EPIPE') {
+                                console.error("Error sending video chunk:", error);
+                            }
+                        }
+                    );
 
-                chunkIndex++;
-            } else if (chunkIndex >= totalChunks) {
+                    chunkIndex++;
+                } catch (error) {
+                    console.error("Error processing video chunk:", error);
+                    clearInterval(intervalId);
+                }
+            } else {
                 clearInterval(intervalId);
             }
         }, 33); // ~30fps
@@ -799,7 +828,9 @@ function streamVideo(ws, videoFile) {
         ws.intervals.push(intervalId);
     } catch (error) {
         console.error("Error streaming video:", error);
-        ws.close(1011, "Error streaming video");
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.close(1011, "Error streaming video");
+        }
     }
 }
 
