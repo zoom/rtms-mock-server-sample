@@ -469,10 +469,10 @@ function handleSignalingHandshake(ws, message) {
         status_code: "STATUS_OK",
         media_server: {
             server_urls: {
-                audio: `wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/audio`,
-                video: `wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/video`,
-                transcript: `wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/transcript`,
-                all: `wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/all`,
+                audio: `wss://testzoom.replit.app/audio`,
+                video: `wss://testzoom.replit.app/video`,
+                transcript: `wss://testzoom.replit.app/transcript`,
+                all: `wss://testzoom.replit.app/all`,
             },
             srtp_keys: {
                 audio: crypto.randomBytes(32).toString("hex"),
