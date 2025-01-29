@@ -263,19 +263,23 @@ wss.on("error", (error) => {
     console.error("WebSocket server error:", error);
 });
 
+let signalingWebsocket = null;
 wss.on("connection", (ws) => {
     console.log("New handshake connection established");
+    signalingWebsocket = ws;
 
     // Handle handshake disconnection
     ws.on("close", () => {
         console.log("Handshake connection closed");
         closeMediaServer();
+        signalingWebsocket = null;
     });
 
     // Handle handshake errors
     ws.on("error", () => {
         console.log("Handshake connection error");
         closeMediaServer();
+        signalingWebsocket = null;
     });
 
     // Only start media server after successful handshake
@@ -524,6 +528,17 @@ function setupMediaWebSocketServer(wss) {
             try {
                 const message = JSON.parse(data);
                 console.log("Received message on media channel:", message);
+
+                // Relay session state updates to signaling websocket
+                if (message.msg_type === "SESSION_STATE_UPDATE" && signalingWebsocket && signalingWebsocket.readyState === WebSocket.OPEN) {
+                    signalingWebsocket.send(JSON.stringify({
+                        msg_type: "SESSION_STATE_UPDATE",
+                        session_id: ws.rtmsSessionId,
+                        state: message.state,
+                        stop_reason: message.stop_reason,
+                        timestamp: message.timestamp || Date.now()
+                    }));
+                }
 
                 if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
                     console.log(
