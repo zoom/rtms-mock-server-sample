@@ -1,0 +1,147 @@
+Project Overview
+This mock server is designed to emulate a real server's capabilities, providing a development environment where client-server interactions can be tested using mock data. The server is hosted on Replit at wss://testzoom.replit.app and supports WebSocket communication for signaling and media streaming.
+1. Introduction
+The mock server designed herein aims to reproduce the behavior of a real server. Its primary goal is to provide developers and testers with a reliable environment where client-server interactions can be simulated and tested using predefined mock data.
+The server facilitates integration testing and workflow verification without the need for a live server. This is particularly beneficial for the development of applications that rely on real-time signaling and media streaming capabilities, which might be challenging to implement and test without a fully operational server counterpart.
+Key focus areas include:
+- Simulating Server Interactions: The mock server mimics signaling processes and media handling, including audio and video streaming using WebSocket protocols. This ensures developers can validate how their applications will behave when deployed to production environments.
+- Ensuring Reliability: By emulating server interactions and providing comprehensive support for media streaming, the mock server creates a robust environment that emulates real-world server situations, reducing testing bottlenecks and enhancing development speed.
+- Support for Developers and Testers: Developers can use this server to verify protocol adherence and improve the quality of client-side implementations, while testers can conduct thorough test coverage even when the actual server is not accessible.
+
+2. Problem Statement
+2.1 Challenges
+With the Tree Hacks event sponsored by Zoom fast approaching in February and other RTMS partners having questions about implementing RTMS, we are faced with a pressing set of challenges, particularly given that our main server won’t be ready until mid-March:
+- Accelerating Partner Development Timelines: Developers are currently constrained by the absence of real-time server environments, which obstructs agile development and iterative testing necessary for deploying new features pivotal for the event's success.
+- Integration Complexity: Achieving flawless client-server protocol fidelity is challenging without instantaneous server responses. This can lead to potential misalignments between anticipated client behavior and server operations.
+- Incomplete Testing Framework: The unavailability of the main server until mid-March severely limits our ability to execute comprehensive test cases. This gap poses a risk of unforeseen issues impacting the reliability and functionality of the applications during demonstrations.
+- Urgency in Customer Implementation: Our partners cannot afford to defer their initiatives until mid-March. They need a robust platform to kick-start their implementation efforts, enabling them to establish and solidify their development workflows early.
+2.2 Objectives
+To address these challenges and align with our strategic objectives for Tree Hacks, we aim to:
+- Develop a Mock Server for RTMS websocket Protocols: This server will serve as a critical test bed, accurately mirroring real server operations through WebSocket signaling and media streaming. It will act as a catalyst for developers and partners, enabling them to commence integration and refinement of their client-side solutions with confidence.
+- Facilitate Comprehensive Simulation and Client-Side Validation: The mock server empowers developers to simulate complete server interactions, allowing them to validate and adjust client-side implementations as needed. This ensures applications are not only ready for the Tree Hacks event but also future-ready when the main server goes live.
+
+3. Solution Overview
+3.1 Features and Capabilities
+The mock server offers a comprehensive solution to the challenges faced, positioning itself as a critical tool for developers and partners in achieving accelerated development and seamless integration:
+- Real-time WebSocket Communication: The server facilitates robust, bidirectional communication, crucial for session management and media data streaming. This mirrors the functionality of a live server, ensuring developers can interact with it as they would with the final production environment.
+- Advanced Mock Media Handling: Utilizing FFmpeg, the server efficiently converts existing media files (audio and video) into formats suitable for testing. This empowers developers to simulate real-world media streaming scenarios and refine their applications accordingly.
+- Robust Security and Authentication: With HMAC-based signature validation, the mock server ensures that all connection requests are authenticated. This secures the development environment and mimics production-level security protocols, allowing developers to focus on refining their applications without security concerns.
+- Comprehensive Simulation Environment: By replicating intricate server interactions and supporting the integration of complex signaling workflows, the mock server empowers developers to test and validate client-server interactions thoroughly. This ensures that applications remain robust and reliable, ready for the high demands of live deployment.
+3.2 Strategic Benefits
+- Accelerated Development Cycle: By providing an immediate and reliable test environment, the mock server allows developers to innovate and iterate without delay, overcoming the limitations posed by the unavailability of the main server.
+- Enhanced Integration Validation: The server facilitates comprehensive tests of client-side protocols and integration points, uncovering potential issues before they reach production.
+- Empowered Partner Engagement: Partners can begin building and refining their solutions earlier in the development cycle, ensuring that they are aligned and ready for integration when the main server becomes operational.
+4. System Architecture
+4.1 Technical Stack
+The Real-Time Media Streaming (RTMS) server is built on a robust technical stack, leveraging several powerful tools and frameworks to deliver its functionalities:
+- Node.js: The core runtime that provides an efficient, non-blocking event loop architecture to manage numerous client connections simultaneously.
+- Express.js: Simplifies the creation of HTTP routes and serves as the foundation for request handling and health checks.
+- WebSocket Library: Utilizes the ws module to establish and manage real-time, full-duplex communication channels essential for streaming media and signaling.
+4.2 Architecture Diagram
+
+4.3 Core Components
+- Handshake Server:
+    - Port 9092: Handles the establishment of WebSocket connections, performing credential verification and managing session states.
+    - Credential Authentication: Utilizes rtms_credentials.json to authenticate client requests securely.
+- Media Server:
+    - Port 8081: Manages the delivery of streaming media (audio and video) using WebSocket connections.
+    - Chunked Streaming: Reads media files from the data directory and streams them in chunks to ensure smooth playback across various clients.
+- Data Management:
+    - Directories: The data/ directory houses media files along with credentials; converted audio files reside in the PCM Directory.
+    - Credential Validation: Handles client authentication against predefined credentials to secure each session.
+- Logging and Monitoring:
+    - Implements extensive logging for tracing WebSocket connections, data transfers, and server states in both handshake and media contexts.
+4.4 Process Flows
+- Server Initialization:
+    - The handshake and media servers are initialized, listening on their respective ports to prepare for incoming client connections.
+- Client Connection:
+    - Clients initiate a connection through the handshake WebSocket server, which authenticates the session and validates credentials before proceeding.
+- Media Session Start:
+    - Post-authentication, the media server reads designated media files, ensuring they are ready to be streamed upon request.
+- Streaming Process:
+    - Media data (audio and video) is dispatched in intervals, ensuring continuity in playback. Transcripts are also streamed alongside the media as text data.
+- Session Management:
+    - The system adeptly manages multiple sessions concurrently, tracking connected clients and implementing cleanup protocols upon disconnection.
+5. Implementation
+5.1 Server Port Management
+- Handshake Server: Operates on Port 9092, handling WebSocket connection requests and managing initial signaling. This server verifies each client's credentials, ensuring only authenticated users proceed to media streaming.
+- Media Streaming Server: Utilizes Port 8081 for delivering audio and video streams. It processes WebSocket connections specifically for media data, ensuring efficient and smooth streaming through chunk distribution.
+5.2 Security and Credential Management
+- Credential Validation: Credentials are extracted and validated against the rtms_credentials.json file. This ensures that only authorized clients can participate in sessions by leveraging HMAC signature validation for robust security.
+5.3 WebSocket Communication and Media Streaming
+- WebSocket Management: The setup involves two WebSocket servers — one for signaling and another for media streaming. Connection upgrades are handled to differentiate between initial handshakes and actual media data streams.
+- Media Streaming:
+    - Converts .m4a and .mp4 files to .pcm using FFmpeg for appropriate audio streaming.
+    - Streams media in defined chunk intervals, managing playback continuity and simulating real-time media delivery, which includes handling audio, video, and transcript content.
+5.4 Error Handling and Logging
+- Logging: Comprehensive logging mechanisms track connection states, message exchanges, and error occurrences for diagnostic and monitoring purposes.
+- Error Management: The system includes strategies for handling errors, particularly during WebSocket transactions and media streaming transactions, ensuring graceful handling and recovery.
+5.5 Key Functional Responsibilities
+- Stream Lifecycle Management: The system orchestrates the lifecycle of streaming operations using startMediaServer() and closeMediaServer(), effectively starting and stopping the media delivery as dictated by session validity and connection health.
+- Signaling Handshake Process: Managed by handleSignalingHandshake(), this process validates initial connection requests, performs credential checks, and orchestrates the initiation of media streaming upon successful handshake.
+- Periodic Messaging: Use of keep-alive messages maintains an active connection, ensuring ongoing communication and signaling integrity across sessions.
+6. Product Specification Overview
+6.1 Acceptance Criteria
+a. Connection Establishment
+The mock server should:
+- Accept connections over the specified protocols (e.g., WebSocket, UDP, etc.).
+- Validate initial connection requests, including required parameters like meeting_uuid, rtms_stream_id, and signature.
+- Respond to SIGNALING_HAND_SHAKE_REQ with a properly formatted SIGNALING_HAND_SHAKE_RESP message, including:
+    - Status (STATUS_OK or an error status with a reason).
+    - Media server details (e.g., server_urls and supported protocols).
+b. Authentication and Security
+- Validate client credentials, such as HMAC signatures, against pre-configured secrets.
+- Reject invalid or expired tokens/signatures with appropriate error messages (STATUS_INVALID_SIGNATURE or similar).
+- Support optional payload encryption and enforce encryption for UDP connections.
+c. Event Subscription
+- Handle EVENT_SUBSCRIPTION messages to allow clients to:
+    - Subscribe or unsubscribe to events like ACTIVE_SPEAKER_CHANGE, PARTICIPANT_JOIN, and PARTICIPANT_LEAVE.
+- Simulate event triggers based on a configurable timeline (e.g., simulate a participant joining after 10 seconds).
+d. Session Lifecycle
+- Support the following session states:
+    - INITIALIZE: Simulate session setup upon client request.
+    - STARTED: Transition to active media streaming.
+    - PAUSED/RESUMED: Emulate pausing and resuming media streams.
+    - STOPPED: Handle session termination.
+- Send SESSION_STATE_UPDATE messages for each state change with appropriate reasons (e.g., ACTION_BY_HOST, ACTION_BY_USER).
+e. Media Stream Setup
+- Respond to DATA_HAND_SHAKE_REQ messages with DATA_HAND_SHAKE_RESP, including:
+    - Negotiated media parameters (e.g., audio codec, sample rate, resolution, and frame rate).
+    - Encryption settings.
+- Allow clients to configure:
+    - Media types (AUDIO, VIDEO, ALL, etc.).
+    - Transmission protocols.
+    - Media parameters (e.g., HD resolution, 16KHz audio).
+f. Media Data Transmission
+- Simulate media packet transmission for the following types:
+    - Audio:
+        - Mixed stream or individual streams for active speakers.
+        - Configurable sample rates, channels, and codecs.
+    - Video:
+        - Simulate an active speaker’s video with configurable resolution and frame rate.
+    - Text:
+        - Simulate transcript and chat data transmission.
+- Handle transmission interruptions and reconnections.
+g. Stream and Session Events
+- Emit the following events during active sessions:
+    - STREAM_STATE_UPDATE for stream changes (e.g., ACTIVE, TERMINATED).
+    - EVENT_UPDATE for subscribed events like participant joins or active speaker changes.
+- Allow customization of event frequency and details.
+h. Keep-Alive Mechanism
+- Send KEEP_ALIVE_REQ messages every 5 seconds during active connections.
+- Respond to KEEP_ALIVE_RESP messages from the client.
+- Terminate connections after three consecutive unanswered keep-alive requests.
+i. Error Simulation
+- Inject errors at various stages, such as:
+    - Connection timeouts.
+    - Invalid message formats (STATUS_INVALID_JSON_MSG).
+    - Signature mismatches (STATUS_INVALID_SIGNATURE).
+    - Unsupported media parameters (STATUS_INVALID_MEDIA_PARAMS).
+j. Session Termination
+- On session or stream termination:
+    - Send SESSION_STATE_UPDATE or STREAM_STATE_UPDATE messages with appropriate reasons (e.g., STOP_BC_HOST_TRIGGERED, STOP_BC_CONNECTION_TIMEOUT).
+    - Log the termination event for debugging.
+k. Failover Scenarios
+- Simulate failover scenarios,:
+    - Reconnection after the RTMS-to-client connection breaks.
+    - Handling duplicate connection requests (accept the first, reject subsequent).

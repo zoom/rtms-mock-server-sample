@@ -1,4 +1,3 @@
-/*
 const WebSocket = require("ws");
 const express = require("express");
 const crypto = require("crypto");
@@ -116,7 +115,10 @@ handshakeApp.get("/ws-health", (req, res) => {
     if (isHandshakeServerActive && mediaServer) {
         res.status(200).json({ status: "ok" });
     } else {
-        res.status(503).json({ status: "error", message: "WebSocket servers not ready" });
+        res.status(503).json({
+            status: "error",
+            message: "WebSocket servers not ready",
+        });
     }
 });
 
@@ -288,12 +290,16 @@ wss.on("error", (error) => {
 
 // Load and validate credentials
 function loadCredentials() {
-    const credentialsPath = path.join(__dirname, 'data', 'rtms_credentials.json');
+    const credentialsPath = path.join(
+        __dirname,
+        "data",
+        "rtms_credentials.json",
+    );
     try {
-        const data = fs.readFileSync(credentialsPath, 'utf8');
+        const data = fs.readFileSync(credentialsPath, "utf8");
         return JSON.parse(data).credentials;
     } catch (error) {
-        console.error('Error loading credentials:', error);
+        console.error("Error loading credentials:", error);
         return [];
     }
 }
@@ -301,9 +307,10 @@ function loadCredentials() {
 // Validate credentials against stored values
 function validateCredentials(meeting_uuid, rtms_stream_id) {
     const credentials = loadCredentials();
-    return credentials.some(cred => 
-        cred.meeting_uuid === meeting_uuid && 
-        cred.rtms_stream_id === rtms_stream_id
+    return credentials.some(
+        (cred) =>
+            cred.meeting_uuid === meeting_uuid &&
+            cred.rtms_stream_id === rtms_stream_id,
     );
 }
 
@@ -339,9 +346,10 @@ function handleSignalingHandshake(ws, message) {
 
     // Get credentials including client_id for signature validation
     const credentials = loadCredentials();
-    const matchingCred = credentials.find(cred => 
-        cred.meeting_uuid === meeting_uuid && 
-        cred.rtms_stream_id === rtms_stream_id
+    const matchingCred = credentials.find(
+        (cred) =>
+            cred.meeting_uuid === meeting_uuid &&
+            cred.rtms_stream_id === rtms_stream_id,
     );
 
     if (!matchingCred) {
@@ -358,9 +366,9 @@ function handleSignalingHandshake(ws, message) {
 
     // Validate signature using client_id + "," + meeting_uuid + "," + rtms_stream_id
     const expectedSignature = crypto
-        .createHmac('sha256', matchingCred.client_secret)
+        .createHmac("sha256", matchingCred.client_secret)
         .update(`${matchingCred.client_id},${meeting_uuid},${rtms_stream_id}`)
-        .digest('hex');
+        .digest("hex");
 
     if (signature !== expectedSignature) {
         ws.send(
@@ -480,7 +488,13 @@ function handleDataHandshake(ws, message, channel) {
         return;
     }
 
-    const { meeting_uuid, rtms_stream_id, payload_encryption, media_params, signature } = message;
+    const {
+        meeting_uuid,
+        rtms_stream_id,
+        payload_encryption,
+        media_params,
+        signature,
+    } = message;
 
     // Validate required fields
     if (!meeting_uuid || !rtms_stream_id || !signature) {
@@ -497,9 +511,10 @@ function handleDataHandshake(ws, message, channel) {
 
     // Get credentials for signature validation
     const credentials = loadCredentials();
-    const matchingCred = credentials.find(cred => 
-        cred.meeting_uuid === meeting_uuid && 
-        cred.rtms_stream_id === rtms_stream_id
+    const matchingCred = credentials.find(
+        (cred) =>
+            cred.meeting_uuid === meeting_uuid &&
+            cred.rtms_stream_id === rtms_stream_id,
     );
 
     if (!matchingCred) {
@@ -516,9 +531,9 @@ function handleDataHandshake(ws, message, channel) {
 
     // Validate signature using client_id + "," + meeting_uuid + "," + rtms_stream_id
     const expectedSignature = crypto
-        .createHmac('sha256', matchingCred.client_secret)
+        .createHmac("sha256", matchingCred.client_secret)
         .update(`${matchingCred.client_id},${meeting_uuid},${rtms_stream_id}`)
-        .digest('hex');
+        .digest("hex");
 
     if (signature !== expectedSignature) {
         ws.send(
@@ -535,8 +550,10 @@ function handleDataHandshake(ws, message, channel) {
     // Find any session with matching credentials
     let session;
     clientSessions.forEach((value, key) => {
-        if (value.meeting_uuid === meeting_uuid && 
-            value.rtms_stream_id === rtms_stream_id) {
+        if (
+            value.meeting_uuid === meeting_uuid &&
+            value.rtms_stream_id === rtms_stream_id
+        ) {
             session = value;
         }
     });
@@ -557,7 +574,10 @@ function handleDataHandshake(ws, message, channel) {
     clientSessions.set(ws, session);
 
     // Validate credentials match session
-    if (session.meeting_uuid !== meeting_uuid || session.rtms_stream_id !== rtms_stream_id) {
+    if (
+        session.meeting_uuid !== meeting_uuid ||
+        session.rtms_stream_id !== rtms_stream_id
+    ) {
         ws.send(
             JSON.stringify({
                 msg_type: "DATA_HANDSHAKE_RESP",
@@ -1052,7 +1072,7 @@ const DEFAULT_AUDIO_PARAMS = {
 const DEFAULT_VIDEO_PARAMS = {
     content_type: MEDIA_CONTENT_TYPE.RAW_VIDEO,
     codec: "JPG",
-resolution: "HD",
+    resolution: "HD",
     fps: 5,
 };
 
@@ -1061,39 +1081,58 @@ function validateMediaParams(params) {
 
     if (params.audio) {
         // Validate audio content type
-        if (params.audio.content_type !== MEDIA_CONTENT_TYPE.RAW_AUDIO) return false;
+        if (params.audio.content_type !== MEDIA_CONTENT_TYPE.RAW_AUDIO)
+            return false;
 
         // Validate sample rate
-        if (!['SR_16K', 'SR_32K', 'SR_48K'].includes(params.audio.sample_rate)) return false;
+        if (!["SR_16K", "SR_32K", "SR_48K"].includes(params.audio.sample_rate))
+            return false;
 
         // Validate channel
-        if (!['MONO', 'STEREO'].includes(params.audio.channel)) return false;
+        if (!["MONO", "STEREO"].includes(params.audio.channel)) return false;
 
         // Validate codec
-        if (!['L16', 'PCMA', 'PCMU', 'G722', 'OPUS'].includes(params.audio.codec)) return false;
+        if (
+            !["L16", "PCMA", "PCMU", "G722", "OPUS"].includes(
+                params.audio.codec,
+            )
+        )
+            return false;
 
         // Validate data option
-        if (!['AUDIO_MIXED_STREAM', 'AUDIO_MULTI_STREAMS'].includes(params.audio.data_opt)) return false;
+        if (
+            !["AUDIO_MIXED_STREAM", "AUDIO_MULTI_STREAMS"].includes(
+                params.audio.data_opt,
+            )
+        )
+            return false;
 
         // Validate send interval
-        if (params.audio.send_interval && (params.audio.send_interval % 20 !== 0)) return false;
+        if (params.audio.send_interval && params.audio.send_interval % 20 !== 0)
+            return false;
     }
 
     if (params.video) {
         // Validate content type
-        if (params.video.content_type !== MEDIA_CONTENT_TYPE.RAW_VIDEO) return false;
+        if (params.video.content_type !== MEDIA_CONTENT_TYPE.RAW_VIDEO)
+            return false;
 
         // Validate codec based on fps
-        if (params.video.fps <= 5 && params.video.codec !== 'JPG') return false;
-        if (params.video.fps > 5 && params.video.codec !== 'H264') return false;
+        if (params.video.fps <= 5 && params.video.codec !== "JPG") return false;
+        if (params.video.fps > 5 && params.video.codec !== "H264") return false;
 
         // Validate resolution
-        if (!['SD', 'HD', 'FHD', 'QHD'].includes(params.video.resolution)) return false;
+        if (!["SD", "HD", "FHD", "QHD"].includes(params.video.resolution))
+            return false;
 
         // Validate fps range
-        if (typeof params.video.fps !== 'number' || params.video.fps < 1 || params.video.fps > 30) return false;
+        if (
+            typeof params.video.fps !== "number" ||
+            params.video.fps < 1 ||
+            params.video.fps > 30
+        )
+            return false;
     }
 
     return true;
 }
-*/

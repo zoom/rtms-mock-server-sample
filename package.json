@@ -1,9 +1,9 @@
 {
   "name": "workspace",
   "version": "1.0.0",
-  "main": "src/server.js",
+  "main": "mockServerforRTMS.js",
   "scripts": {
-    "start": "node src/server.js",
+    "start": "npm run",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
