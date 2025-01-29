@@ -1,98 +1,106 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html>
-<head>
-    <title>RTMS Webhook Sender</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 600px;
-            margin: 20px auto;
-            padding: 20px;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        input[type="text"] {
-            width: 100%;
-            padding: 8px;
-            margin-top: 5px;
-        }
-        button {
-            background-color: #0066cc;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            cursor: pointer;
-            margin-right: 10px;
-        }
-        button:disabled {
-            background-color: #cccccc;
-            cursor: not-allowed;
-        }
-        button:hover:not(:disabled) {
-            background-color: #0052a3;
-        }
-    </style>
-</head>
-<body>
-    <h2>RTMS Webhook Sender</h2>
-    <div class="form-group">
-        <label>Webhook URL:</label>
-        <input type="text" id="webhookUrl" placeholder="Enter webhook URL">
-    </div>
-    <button onclick="validateWebhook()" id="validateBtn">Validate Webhook</button>
-    <button onclick="sendWebhook()" id="sendBtn" disabled>Send Webhook</button>
-    <div id="response" style="margin-top: 20px;"></div>
+    <head>
+        <title>RTMS Webhook</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                max-width: 600px;
+                margin: 20px auto;
+                padding: 20px;
+            }
+            .form-group {
+                margin-bottom: 15px;
+            }
+            input[type="text"] {
+                width: 100%;
+                padding: 8px;
+                margin-top: 5px;
+            }
+            button {
+                background-color: #0066cc;
+                color: white;
+                padding: 10px 20px;
+                border: none;
+                cursor: pointer;
+                margin-right: 10px;
+            }
+            button:disabled {
+                background-color: #cccccc;
+                cursor: not-allowed;
+            }
+            button:hover:not(:disabled) {
+                background-color: #0052a3;
+            }
+        </style>
+    </head>
+    <body>
+        <h2>RTMS Webhook Sender</h2>
+        <div class="form-group">
+            <label>Webhook URL:</label>
+            <input
+                type="text"
+                id="webhookUrl"
+                placeholder="Enter webhook URL"
+            />
+        </div>
+        <button onclick="validateWebhook()" id="validateBtn">
+            Validate Webhook
+        </button>
+        <button onclick="sendWebhook()" id="sendBtn" disabled>
+            Send Webhook
+        </button>
+        <div id="response" style="margin-top: 20px"></div>
 
-    <script>
-        async function validateWebhook() {
-            const webhookUrl = document.getElementById('webhookUrl').value;
-            const responseDiv = document.getElementById('response');
-            const sendBtn = document.getElementById('sendBtn');
-            
-            try {
-                const response = await fetch('/api/validate-webhook', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ webhookUrl })
-                });
-                
-                const data = await response.json();
-                if (data.success) {
-                    responseDiv.innerHTML = 'Webhook validated successfully!';
-                    sendBtn.disabled = false;
-                } else {
-                    responseDiv.innerHTML = `Validation failed: ${data.error}`;
+        <script>
+            async function validateWebhook() {
+                const webhookUrl = document.getElementById("webhookUrl").value;
+                const responseDiv = document.getElementById("response");
+                const sendBtn = document.getElementById("sendBtn");
+
+                try {
+                    const response = await fetch("/api/validate-webhook", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ webhookUrl }),
+                    });
+
+                    const data = await response.json();
+                    if (data.success) {
+                        responseDiv.innerHTML =
+                            "Webhook validated successfully!";
+                        sendBtn.disabled = false;
+                    } else {
+                        responseDiv.innerHTML = `Validation failed: ${data.error}`;
+                        sendBtn.disabled = true;
+                    }
+                } catch (error) {
+                    responseDiv.innerHTML = `Error: ${error.message}`;
                     sendBtn.disabled = true;
                 }
-            } catch (error) {
-                responseDiv.innerHTML = `Error: ${error.message}`;
-                sendBtn.disabled = true;
             }
-        }
 
-        async function sendWebhook() {
-            const webhookUrl = document.getElementById('webhookUrl').value;
-            const responseDiv = document.getElementById('response');
-            
-            try {
-                const response = await fetch('/api/send-webhook', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ webhookUrl })
-                });
-                
-                const data = await response.json();
-                responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-            } catch (error) {
-                responseDiv.innerHTML = `Error: ${error.message}`;
+            async function sendWebhook() {
+                const webhookUrl = document.getElementById("webhookUrl").value;
+                const responseDiv = document.getElementById("response");
+
+                try {
+                    const response = await fetch("/api/send-webhook", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify({ webhookUrl }),
+                    });
+
+                    const data = await response.json();
+                    responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } catch (error) {
+                    responseDiv.innerHTML = `Error: ${error.message}`;
+                }
             }
-        }
-    </script>
-</body>
+        </script>
+    </body>
 </html>
