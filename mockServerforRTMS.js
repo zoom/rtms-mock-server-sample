@@ -6,7 +6,8 @@ const path = require("path");
 
 function calculateSignature(clientId, meetingUuid, rtmsStreamId, clientSecret) {
     const message = `${clientId},${meetingUuid},${rtmsStreamId}`;
-    return crypto.createHmac("sha256", clientSecret)
+    return crypto
+        .createHmac("sha256", clientSecret)
         .update(message)
         .digest("hex");
 }
@@ -116,9 +117,9 @@ handshakeServer.on("upgrade", (request, socket, head) => {
 });
 
 // Add HTTP server routes
-handshakeApp.use(express.static('public'));
+handshakeApp.use(express.static("public"));
 handshakeApp.get("/", (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+    res.sendFile(path.join(__dirname, "public", "index.html"));
 });
 
 // Add health check endpoint
@@ -327,13 +328,15 @@ function loadCredentials() {
         const authCreds = parsedData.auth_credentials || [];
         const streamInfo = parsedData.stream_meeting_info || [];
 
-        return streamInfo.map(stream => {
-            const auth = authCreds.find(cred => cred.accountId === stream.accountId) || {};
+        return streamInfo.map((stream) => {
+            const auth =
+                authCreds.find((cred) => cred.accountId === stream.accountId) ||
+                {};
             return {
                 meeting_uuid: stream.meeting_uuid,
                 rtms_stream_id: stream.rtms_stream_id,
                 client_id: auth.client_id,
-                client_secret: auth.client_secret
+                client_secret: auth.client_secret,
             };
         });
     } catch (error) {
@@ -355,33 +358,44 @@ function validateCredentials(meeting_uuid, rtms_stream_id) {
 // Signaling handshake handler
 function handleSignalingHandshake(ws, message) {
     if (message.protocol_version !== 1) {
-        ws.send(JSON.stringify({
-            msg_type: "SIGNALING_HAND_SHAKE_RESP",
-            protocol_version: 1,
-            status_code: "STATUS_INVALID_VERSION",
-            reason: "Unsupported protocol version"
-        }));
+        ws.send(
+            JSON.stringify({
+                msg_type: "SIGNALING_HAND_SHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_INVALID_VERSION",
+                reason: "Unsupported protocol version",
+            }),
+        );
         return;
     }
 
     const { meeting_uuid, rtms_stream_id, signature } = message;
 
     if (!meeting_uuid || !rtms_stream_id || !signature) {
-        ws.send(JSON.stringify({
-            msg_type: "SIGNALING_HAND_SHAKE_RESP",
-            protocol_version: 1,
-            status_code: "STATUS_INVALID_MESSAGE",
-            reason: "Missing required fields"
-        }));
+        ws.send(
+            JSON.stringify({
+                msg_type: "SIGNALING_HAND_SHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_INVALID_MESSAGE",
+                reason: "Missing required fields",
+            }),
+        );
         return;
     }
 
     // Load credentials from rtms_credentials.json
-    const data = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "rtms_credentials.json"), "utf8"));
-    const streamInfo = data.stream_meeting_info.find(info => info.meeting_uuid === meeting_uuid);
+    const data = JSON.parse(
+        fs.readFileSync(
+            path.join(__dirname, "data", "rtms_credentials.json"),
+            "utf8",
+        ),
+    );
+    const streamInfo = data.stream_meeting_info.find(
+        (info) => info.meeting_uuid === meeting_uuid,
+    );
 
     // Find matching credential by finding any client credentials that can validate the signature
-    const matchingCred = data.auth_credentials.find(cred => {
+    const matchingCred = data.auth_credentials.find((cred) => {
         const testSignature = crypto
             .createHmac("sha256", cred.client_secret)
             .update(`${cred.client_id},${meeting_uuid},${rtms_stream_id}`)
@@ -435,10 +449,10 @@ function handleSignalingHandshake(ws, message) {
         status_code: "STATUS_OK",
         media_server: {
             server_urls: {
-                audio: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/audio`,
-                video: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/video`,
-                transcript: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/transcript`,
-                all: `wss://${mediaHost}:${MEDIA_STREAM_PORT}/all`,
+                audio: `wss://testzoom.replit.app/audio`,
+                video: `wss://testzoom.replit.app/video`,
+                transcript: `wss://testzoom.replit.app/transcript`,
+                all: `wss://testzoom.replit.app/all`,
             },
             srtp_keys: {
                 audio: crypto.randomBytes(32).toString("hex"),
@@ -547,10 +561,15 @@ function handleDataHandshake(ws, message, channel) {
     }
 
     // Load credentials from rtms_credentials.json directly
-    const data = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "rtms_credentials.json"), "utf8"));
-    
+    const data = JSON.parse(
+        fs.readFileSync(
+            path.join(__dirname, "data", "rtms_credentials.json"),
+            "utf8",
+        ),
+    );
+
     // First find the matching credential that can validate the signature
-    const matchingCred = data.auth_credentials.find(cred => {
+    const matchingCred = data.auth_credentials.find((cred) => {
         try {
             const testSignature = crypto
                 .createHmac("sha256", cred.client_secret)
@@ -665,10 +684,13 @@ function handleDataHandshake(ws, message, channel) {
 // Start streaming media data
 function startMediaStreams(ws, channel) {
     // Get random video file from video_files directory
-    const videoFiles = fs.readdirSync(path.join(DATA_DIR, 'video_files')).filter(file => file.endsWith('.mp4'));
-    const randomVideo = videoFiles[Math.floor(Math.random() * videoFiles.length)];
-    
-    const videoFile = path.join(DATA_DIR, 'video_files', randomVideo);
+    const videoFiles = fs
+        .readdirSync(path.join(DATA_DIR, "video_files"))
+        .filter((file) => file.endsWith(".mp4"));
+    const randomVideo =
+        videoFiles[Math.floor(Math.random() * videoFiles.length)];
+
+    const videoFile = path.join(DATA_DIR, "video_files", randomVideo);
     const audioFile = videoFile; // Using same file for audio
     const transcriptFile = path.join(DATA_DIR, "audio1241999856.txt");
 
@@ -1040,7 +1062,7 @@ const RTMS_STOP_REASON = {
     STOP_BC_MEETING_ENDED: "STOP_BC_MEETING_ENDED",
     STOP_BC_STREAM_CANCELED: "STOP_BC_STREAM_CANCELED",
     STOP_BC_ALL_APPS_DISABLED: "STOP_BC_ALL_APPS_DISABLED",
-STOP_BC_INTERNAL_EXCEPTION: "STOP_BC_INTERNAL_EXCEPTION",
+    STOP_BC_INTERNAL_EXCEPTION: "STOP_BC_INTERNAL_EXCEPTION",
     STOP_BC_CONNECTION_TIMEOUT: "STOP_BC_CONNECTION_TIMEOUT",
     STOP_BC_CONNECTION_INTERRUPTED: "STOP_BC_CONNECTION_INTERRUPTED",
     STOP_BC_CONNECTION_CLOSED_BY_CLIENT: "STOP_BC_CONNECTION_CLOSED_BY_CLIENT",
