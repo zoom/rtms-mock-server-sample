@@ -50,9 +50,41 @@
         <button onclick="sendWebhook()" id="sendBtn" disabled>
             Send Webhook
         </button>
+        <div id="videoContainer" style="margin-top: 20px; display: none;">
+            <video id="meetingVideo" width="640" height="360" autoplay controls></video>
+            <audio id="meetingAudio" autoplay></audio>
+        </div>
         <div id="response" style="margin-top: 20px"></div>
 
         <script>
+            let mediaSocket;
+            
+            function startMediaStream(serverUrl) {
+                mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
+                
+                mediaSocket.onopen = () => {
+                    console.log('Connected to media server');
+                    document.getElementById('videoContainer').style.display = 'block';
+                };
+
+                mediaSocket.onmessage = (event) => {
+                    const message = JSON.parse(event.data);
+                    
+                    if (message.msg_type === "MEDIA_DATA_VIDEO") {
+                        const videoData = atob(message.content.data);
+                        const videoBlob = new Blob([videoData], { type: 'video/mp4' });
+                        const videoUrl = URL.createObjectURL(videoBlob);
+                        document.getElementById('meetingVideo').src = videoUrl;
+                    }
+                    
+                    if (message.msg_type === "MEDIA_DATA_AUDIO") {
+                        const audioData = atob(message.content.data);
+                        const audioBlob = new Blob([audioData], { type: 'audio/wav' });
+                        const audioUrl = URL.createObjectURL(audioBlob);
+                        document.getElementById('meetingAudio').src = audioUrl;
+                    }
+                };
+            }
             async function validateWebhook() {
                 const webhookUrl = document.getElementById("webhookUrl").value;
                 const responseDiv = document.getElementById("response");
@@ -85,7 +117,7 @@
             async function sendWebhook() {
                 const webhookUrl = document.getElementById("webhookUrl").value;
                 const responseDiv = document.getElementById("response");
-
+                
                 try {
                     const response = await fetch("/api/send-webhook", {
                         method: "POST",
@@ -97,6 +129,11 @@
 
                     const data = await response.json();
                     responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                    
+                    // Start media stream after successful webhook
+                    if (data.success && data.sent.payload.payload.object.server_urls) {
+                        startMediaStream(data.sent.payload.payload.object.server_urls);
+                    }
                 } catch (error) {
                     responseDiv.innerHTML = `Error: ${error.message}`;
                 }
