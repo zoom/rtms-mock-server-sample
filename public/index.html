@@ -79,7 +79,16 @@
 
             async function startMediaStream(serverUrl) {
                 const video = document.getElementById('meetingVideo');
+                const pauseBtn = document.getElementById('pauseBtn');
+                const resumeBtn = document.getElementById('resumeBtn');
+                const stopBtn = document.getElementById('stopBtn');
+                const sendBtn = document.getElementById('sendBtn');
+                
                 video.style.display = 'block';
+                pauseBtn.disabled = false;
+                resumeBtn.disabled = true;
+                stopBtn.disabled = false;
+                sendBtn.disabled = true;
 
                 try {
                     mediaStream = await navigator.mediaDevices.getUserMedia({ 
@@ -271,38 +280,74 @@
             }
 
             function pauseSession() {
-                if (sessionState !== STARTED) return; //only pause if started
+                if (!mediaSocket || sessionState === STOPPED) return;
                 sessionState = PAUSED;
-                mediaRecorders.video.stop();
-                mediaRecorders.audio.stop();
-                sendSessionStateUpdate(PAUSED, ACTION_BY_USER);
+                
+                if (mediaRecorders.video) mediaRecorders.video.stop();
+                if (mediaRecorders.audio) mediaRecorders.audio.stop();
+                if (recognition) recognition.stop();
+                
+                const message = {
+                    msg_type: "SESSION_STATE_UPDATE",
+                    rmts_session_id: mediaSocket.rtmsSessionId,
+                    state: PAUSED,
+                    stop_reason: ACTION_BY_USER,
+                    timestamp: Date.now()
+                };
+                mediaSocket.send(JSON.stringify(message));
+                
                 document.getElementById('resumeBtn').disabled = false;
                 document.getElementById('pauseBtn').disabled = true;
             }
 
             function resumeSession() {
-                if (sessionState !== PAUSED) return; //only resume if paused
+                if (!mediaSocket || sessionState === STOPPED) return;
                 sessionState = RESUMED;
-                mediaRecorders.video.start(100);
-                mediaRecorders.audio.start(100);
-                sendSessionStateUpdate(RESUMED, ACTION_BY_USER);
+                
+                if (mediaRecorders.video) mediaRecorders.video.start(100);
+                if (mediaRecorders.audio) mediaRecorders.audio.start(100);
+                if (recognition) recognition.start();
+                
+                const message = {
+                    msg_type: "SESSION_STATE_UPDATE",
+                    rmts_session_id: mediaSocket.rtmsSessionId,
+                    state: RESUMED,
+                    stop_reason: ACTION_BY_USER,
+                    timestamp: Date.now()
+                };
+                mediaSocket.send(JSON.stringify(message));
+                
                 document.getElementById('pauseBtn').disabled = false;
                 document.getElementById('resumeBtn').disabled = true;
             }
 
             function stopSession() {
                 sessionState = STOPPED;
+                
                 if (mediaSocket) {
-                    sendSessionStateUpdate(STOPPED, ACTION_BY_USER);
+                    const message = {
+                        msg_type: "SESSION_STATE_UPDATE",
+                        rmts_session_id: mediaSocket.rtmsSessionId,
+                        state: STOPPED,
+                        stop_reason: ACTION_BY_USER,
+                        timestamp: Date.now()
+                    };
+                    mediaSocket.send(JSON.stringify(message));
                     mediaSocket.close();
                 }
+                
                 if (recognition) recognition.stop();
-                if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                }
+                
                 document.getElementById('pauseBtn').disabled = true;
                 document.getElementById('resumeBtn').disabled = true;
                 document.getElementById('stopBtn').disabled = true;
                 document.getElementById('sendBtn').disabled = false;
                 document.getElementById('videoContainer').style.display = 'none';
+                mediaSocket = null;
+                mediaStream = null;
             }
 
             mediaSocket.onclose = () => {
