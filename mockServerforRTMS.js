@@ -754,9 +754,27 @@ function startMediaStreams(ws, channel) {
         }
     });
 
-    // Transcript handling is now done through client-side speech recognition
+    // Handle transcript channel connection
     if (channel === "transcript" || channel === "all") {
         console.log("Transcript channel connected");
+        ws.on('message', (data) => {
+            try {
+                const message = JSON.parse(data);
+                if (message.msg_type === "MEDIA_DATA_TRANSCRIPT") {
+                    // Broadcast transcript to all connected clients
+                    mediaServer.clients.forEach((client) => {
+                        if (client !== ws && client.readyState === WebSocket.OPEN) {
+                            const clientPath = client.upgradeReq.url.replace('/', '');
+                            if (clientPath === 'transcript' || clientPath === 'all') {
+                                client.send(JSON.stringify(message));
+                            }
+                        }
+                    });
+                }
+            } catch (error) {
+                console.error("Error processing transcript data:", error);
+            }
+        });
     }
 
     // Cleanup on connection close
