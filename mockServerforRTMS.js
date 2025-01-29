@@ -376,11 +376,18 @@ function handleSignalingHandshake(ws, message) {
         return;
     }
 
+    // Load credentials from rtms_credentials.json
     const data = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "rtms_credentials.json"), "utf8"));
     const streamInfo = data.stream_meeting_info.find(info => info.meeting_uuid === meeting_uuid);
-    
-    // Find matching credential from auth_credentials
-    const matchingCred = data.auth_credentials.find(cred => cred.accountId === "H2T8P7X9Q4L");
+
+    // Find matching credential by finding any client credentials that can validate the signature
+    const matchingCred = data.auth_credentials.find(cred => {
+        const testSignature = crypto
+            .createHmac("sha256", cred.client_secret)
+            .update(`${cred.client_id},${meeting_uuid},${rtms_stream_id}`)
+            .digest("hex");
+        return testSignature === signature;
+    });
 
     if (!matchingCred) {
         ws.send(
