@@ -24,8 +24,13 @@
             padding: 10px 20px;
             border: none;
             cursor: pointer;
+            margin-right: 10px;
         }
-        button:hover {
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        button:hover:not(:disabled) {
             background-color: #0052a3;
         }
     </style>
@@ -36,10 +41,39 @@
         <label>Webhook URL:</label>
         <input type="text" id="webhookUrl" placeholder="Enter webhook URL">
     </div>
-    <button onclick="sendWebhook()">Send Webhook</button>
+    <button onclick="validateWebhook()" id="validateBtn">Validate Webhook</button>
+    <button onclick="sendWebhook()" id="sendBtn" disabled>Send Webhook</button>
     <div id="response" style="margin-top: 20px;"></div>
 
     <script>
+        async function validateWebhook() {
+            const webhookUrl = document.getElementById('webhookUrl').value;
+            const responseDiv = document.getElementById('response');
+            const sendBtn = document.getElementById('sendBtn');
+            
+            try {
+                const response = await fetch('/api/validate-webhook', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ webhookUrl })
+                });
+                
+                const data = await response.json();
+                if (data.success) {
+                    responseDiv.innerHTML = 'Webhook validated successfully!';
+                    sendBtn.disabled = false;
+                } else {
+                    responseDiv.innerHTML = `Validation failed: ${data.error}`;
+                    sendBtn.disabled = true;
+                }
+            } catch (error) {
+                responseDiv.innerHTML = `Error: ${error.message}`;
+                sendBtn.disabled = true;
+            }
+        }
+
         async function sendWebhook() {
             const webhookUrl = document.getElementById('webhookUrl').value;
             const responseDiv = document.getElementById('response');

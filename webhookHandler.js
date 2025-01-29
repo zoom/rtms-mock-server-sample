@@ -9,12 +9,62 @@ router.use(express.json());
 function loadCredentials() {
     const credentialsPath = path.join(__dirname, 'data', 'rtms_credentials.json');
     try {
-        return JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        const data = JSON.parse(fs.readFileSync(credentialsPath, 'utf8'));
+        // Get token from Zoom_Webhook_Secret_Token array
+        const webhookToken = data.Zoom_Webhook_Secret_Token[0].token;
+        return {
+            auth_credentials: data.auth_credentials,
+            stream_meeting_info: data.stream_meeting_info,
+            webhookToken
+        };
     } catch (error) {
         console.error('Error loading credentials:', error);
-        return { auth_credentials: [], stream_meeting_info: [] };
+        return { auth_credentials: [], stream_meeting_info: [], webhookToken: '' };
     }
 }
+
+// Add webhook validation endpoint
+router.post('/api/validate-webhook', async (req, res) => {
+    const { webhookUrl } = req.body;
+    const credentials = loadCredentials();
+    const plainToken = crypto.randomBytes(16).toString('base64');
+    
+    try {
+        const validationResponse = await fetch(webhookUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                event: 'endpoint.url_validation',
+                payload: {
+                    plainToken: plainToken
+                },
+                event_ts: Date.now()
+            })
+        });
+
+        if (!validationResponse.ok) {
+            return res.json({ success: false, error: 'Webhook endpoint returned error' });
+        }
+
+        const data = await validationResponse.json();
+        
+        // Verify the response
+        const expectedHash = crypto
+            .createHmac('sha256', credentials.webhookToken)
+            .update(plainToken)
+            .digest('hex');
+
+        if (data.plainToken === plainToken && data.encryptedToken === expectedHash) {
+            res.json({ success: true });
+        } else {
+            res.json({ success: false, error: 'Invalid validation response' });
+        }
+    } catch (error) {
+        res.json({ success: false, error: error.message });
+    }
+});
 
 function getRandomEntry(array) {
     return array[Math.floor(Math.random() * array.length)];
