@@ -4,6 +4,7 @@ const path = require('path');
 const fs = require('fs');
 
 const router = express.Router();
+router.use(express.json());
 
 function loadCredentials() {
     const credentialsPath = path.join(__dirname, 'data', 'rtms_credentials.json');

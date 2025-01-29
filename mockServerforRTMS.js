@@ -1176,7 +1176,7 @@ function validateMediaParams(params) {
 }
 
 // Integrate the webhook router
-handshakeApp.use("/webhook", webhookRouter);
+handshakeApp.use("/", webhookRouter);
 
 // Start webhook server
 const webhookApp = express();
