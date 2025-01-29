@@ -58,8 +58,18 @@
 
         <script>
             let mediaSocket;
+            let mediaSource;
+            let sourceBuffer;
             
             function startMediaStream(serverUrl) {
+                const video = document.getElementById('meetingVideo');
+                mediaSource = new MediaSource();
+                video.src = URL.createObjectURL(mediaSource);
+                
+                mediaSource.addEventListener('sourceopen', () => {
+                    sourceBuffer = mediaSource.addSourceBuffer('video/mp4; codecs="avc1.42E01E,mp4a.40.2"');
+                });
+                
                 mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
                 
                 mediaSocket.onopen = () => {
@@ -71,10 +81,14 @@
                     const message = JSON.parse(event.data);
                     
                     if (message.msg_type === "MEDIA_DATA_VIDEO") {
-                        const videoData = atob(message.content.data);
-                        const videoBlob = new Blob([videoData], { type: 'video/mp4' });
-                        const videoUrl = URL.createObjectURL(videoBlob);
-                        document.getElementById('meetingVideo').src = videoUrl;
+                        const videoData = Uint8Array.from(atob(message.content.data), c => c.charCodeAt(0));
+                        if (sourceBuffer && !sourceBuffer.updating) {
+                            try {
+                                sourceBuffer.appendBuffer(videoData);
+                            } catch (e) {
+                                console.error('Error appending video buffer:', e);
+                            }
+                        }
                     }
                     
                     if (message.msg_type === "MEDIA_DATA_AUDIO") {
