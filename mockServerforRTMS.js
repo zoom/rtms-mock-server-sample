@@ -313,7 +313,19 @@ function loadCredentials() {
     );
     try {
         const data = fs.readFileSync(credentialsPath, "utf8");
-        return JSON.parse(data).credentials;
+        const parsedData = JSON.parse(data);
+        const authCreds = parsedData.auth_credentials || [];
+        const streamInfo = parsedData.stream_meeting_info || [];
+        
+        return streamInfo.map(stream => {
+            const auth = authCreds.find(cred => cred.accountId === stream.accountId) || {};
+            return {
+                meeting_uuid: stream.meeting_uuid,
+                rtms_stream_id: stream.rtms_stream_id,
+                client_id: auth.client_id,
+                client_secret: auth.client_secret
+            };
+        });
     } catch (error) {
         console.error("Error loading credentials:", error);
         return [];
