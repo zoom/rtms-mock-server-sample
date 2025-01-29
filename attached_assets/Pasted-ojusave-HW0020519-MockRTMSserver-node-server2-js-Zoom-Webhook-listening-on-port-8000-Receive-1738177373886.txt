@@ -1,0 +1,105 @@
+ojusave@HW0020519 MockRTMSserver % node server2.js
+🚀 Zoom Webhook listening on port 8000
+📩 Received request: {
+  "event": "endpoint.url_validation",
+  "payload": {
+    "plainToken": "MV0aFQVEAORVywVEjzCJag=="
+  },
+  "event_ts": 1738177330304
+}
+🔑 Processing Zoom endpoint validation...
+✅ Validation response: {
+  plainToken: 'MV0aFQVEAORVywVEjzCJag==',
+  encryptedToken: '50216c603f374516ba55f98b052cba0a92dad54bfc040bffe2498e3f555c94f0'
+}
+🔄 Still connected...
+📩 Received request: {
+  "eventType": "meeting.rtms.started",
+  "eventTime": 1738177332977,
+  "clientId": "DnWfgHHASGOQC9b95AkIxH",
+  "userId": "W7Y3T9Q1L6",
+  "accountId": "H2T8P7X9Q4L",
+  "payload": {
+    "event": "meeting.rtms.started",
+    "event_ts": 1738177332977,
+    "payload": {
+      "operator_id": "W7Y3T9Q1L6",
+      "object": {
+        "meeting_uuid": "QLhvT3WEBT6Srse3TgWRGu",
+        "rtms_stream_id": "rtms_QL3WEBT6SrTgWRGu_004",
+        "server_urls": "wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev"
+      }
+    }
+  }
+}
+✅ Processing RTMS Event: meeting.rtms.started
+🔹 Extracted RTMS Data: {
+  rtmsEvent: 'meeting.rtms.started',
+  clientId: 'DnWfgHHASGOQC9b95AkIxH',
+  meeting_uuid: 'QLhvT3WEBT6Srse3TgWRGu',
+  rtms_stream_id: 'rtms_QL3WEBT6SrTgWRGu_004',
+  server_urls: 'wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev'
+}
+🔗 Connecting to RTMS WebSocket server: wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev
+✅ Connected to WebSocket server
+📤 Sending handshake message: {
+  "msg_type": "SIGNALING_HAND_SHAKE_REQ",
+  "protocol_version": 1,
+  "meeting_uuid": "QLhvT3WEBT6Srse3TgWRGu",
+  "rtms_stream_id": "rtms_QL3WEBT6SrTgWRGu_004",
+  "signature": "6bcd3f116757c375b52643d9a2e1ef258f9450db021aedd59d3fa20dfc987052"
+}
+📩 Received message from RTMS server: {
+  "msg_type": "SIGNALING_HAND_SHAKE_RESP",
+  "protocol_version": 1,
+  "status_code": "STATUS_OK",
+  "media_server": {
+    "server_urls": {
+      "audio": "wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/audio",
+      "video": "wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/video",
+      "transcript": "wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/transcript",
+      "all": "wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/all"
+    },
+    "srtp_keys": {
+      "audio": "35f3773adeb3c9f622fc4d9852e9169b18743397806fee63fcc713e4ae45ca77",
+      "video": "63edf6bae05f8b7c9de8d9f81ab118a2aa6b6037b4683508360e07cbbe3df620",
+      "share": "d2ce3715ebe2564f54bbcd06c2d44e7a012edd3d57d9961430ddf162787c6ea3"
+    }
+  }
+}
+📡 Media server URLs received: {
+  audio: 'wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/audio',
+  video: 'wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/video',
+  transcript: 'wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/transcript',
+  all: 'wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/all'
+}
+🔗 Connecting to Media WebSocket server: wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/all
+✅ Connected to Media WebSocket server: wss://d99fc4de-8690-4f08-b082-4b3a75dd89bd-00-18yokz7tngk3h.picard.replit.dev/all
+📤 Sending data handshake message: {
+  "msg_type": "DATA_HAND_SHAKE_REQ",
+  "protocol_version": 1,
+  "meeting_uuid": "QLhvT3WEBT6Srse3TgWRGu",
+  "rtms_stream_id": "rtms_QL3WEBT6SrTgWRGu_004",
+  "signature": "6bcd3f116757c375b52643d9a2e1ef258f9450db021aedd59d3fa20dfc987052",
+  "payload_encryption": false
+}
+📩 Received raw message from media server: <Buffer 7b 22 6d 73 67 5f 74 79 70 65 22 3a 22 44 41 54 41 5f 48 41 4e 44 53 48 41 4b 45 5f 52 45 53 50 22 2c 22 70 72 6f 74 6f 63 6f 6c 5f 76 65 72 73 69 6f ... 70 more bytes>
+📩 Received parsed message from media server: {
+  "msg_type": "DATA_HANDSHAKE_RESP",
+  "protocol_version": 1,
+  "status_code": "STATUS_OK",
+  "sequence": 1,
+  "payload_encrypted": false
+}
+📩 Received raw message from media server: <Buffer 7b 22 6d 73 67 5f 74 79 70 65 22 3a 22 54 52 41 4e 53 43 52 49 50 54 5f 44 41 54 41 22 2c 22 74 65 78 74 22 3a 22 30 30 3a 30 30 20 53 70 65 61 6b 65 ... 666 more bytes>
+📩 Received parsed message from media server: {
+  "msg_type": "TRANSCRIPT_DATA",
+  "text": "00:00 Speaker:  hi there hi this is a test meeting for rtms hi hello okay so i'm just going to say a few  jargons ai is the next best thing and then google calendar was previously set up for some virtual  rooms but it wasn't widely used he clarified that the current system can send invites as an  ics file without any integration which should work with most email services someone mentioned  that some colleagues have experienced issues about invites not appearing i request a demonstration of  how the invites appear i will offer to send test invitations to participants and explain  the previous google calendar integrations all right let's see if this works.",
+  "timestamp": 0
+}
+🔄 Still connected...
+🔄 Still connected...
+🔴 Media WebSocket closed: 1006 
+🔴 RTMS WebSocket closed: 1006 
+🔄 Still connected...
+🔄
