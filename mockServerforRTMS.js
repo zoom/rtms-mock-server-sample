@@ -40,15 +40,18 @@ let mediaServer = null;
 let isHandshakeServerActive = false;
 const handshakeServer = require("http").createServer(handshakeApp);
 
-// Start both servers
+// Start both servers with explicit host binding
 handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
-    console.log(`Handshake server running on port ${HANDSHAKE_PORT}`);
+    console.log(`Handshake server running on 0.0.0.0:${HANDSHAKE_PORT}`);
 });
 
 mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
-    console.log(`Media server running on port ${MEDIA_STREAM_PORT}`);
-    // Create WebSocket server attached to HTTP server
-    mediaServer = new WebSocket.Server({ server: mediaHttpServer });
+    console.log(`Media server running on 0.0.0.0:${MEDIA_STREAM_PORT}`);
+    // Create WebSocket server attached to HTTP server with explicit host
+    mediaServer = new WebSocket.Server({ 
+        server: mediaHttpServer,
+        host: '0.0.0.0'
+    });
     setupMediaWebSocketServer(mediaServer);
 });
 
