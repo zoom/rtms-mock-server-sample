@@ -711,7 +711,7 @@ function streamAudio(ws, audioFile) {
     try {
         const chunks = fs.readFileSync(audioFile);
         console.log("Successfully read audio file. Size:", chunks.length);
-        const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
+        const chunkSize = 160; // 16-bit mono PCM at 16kHz
         let chunkIndex = 0;
         const totalChunks = Math.ceil(chunks.length / chunkSize);
 
@@ -725,19 +725,21 @@ function streamAudio(ws, audioFile) {
                 const end = Math.min(start + chunkSize, chunks.length);
                 const chunk = chunks.slice(start, end);
 
+                // Convert to Int16Array for proper audio format
+                const int16Array = new Int16Array(chunk.buffer, chunk.byteOffset, chunk.length / 2);
+                const base64Data = Buffer.from(int16Array.buffer).toString('base64');
+
                 const message = JSON.stringify({
                     msg_type: "MEDIA_DATA",
                     content: {
                         user_id: 0,
                         media_type: "AUDIO",
-                        data: chunk.toString("base64"),
+                        data: base64Data,
                         timestamp: Date.now(),
                         sequence: chunkIndex,
                     },
                 });
-                console.log(
-                    `Sending chunk ${chunkIndex}, size: ${chunk.length}`,
-                );
+
                 ws.send(message, (error) => {
                     if (error) console.error("Error sending chunk:", error);
                 });
@@ -746,7 +748,7 @@ function streamAudio(ws, audioFile) {
             } else if (chunkIndex >= totalChunks) {
                 clearInterval(intervalId);
             }
-        }, 100); // Send every 100ms
+        }, 10); // Send every 10ms for smoother audio
 
         ws.intervals = ws.intervals || [];
         ws.intervals.push(intervalId);
