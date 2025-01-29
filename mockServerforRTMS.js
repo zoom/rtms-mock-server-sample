@@ -48,17 +48,17 @@ handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
 mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
     console.log(`Media server running on 0.0.0.0:${MEDIA_STREAM_PORT}`);
     // Create WebSocket server attached to HTTP server with explicit host
-    mediaServer = new WebSocket.Server({ 
+    mediaServer = new WebSocket.Server({
         server: mediaHttpServer,
-        host: '0.0.0.0'
+        host: "0.0.0.0",
     });
     setupMediaWebSocketServer(mediaServer);
 });
 
 // Handle errors on the socket
 const handleSocketError = (socket) => {
-    socket.on('error', (err) => {
-        console.error('Socket error:', err);
+    socket.on("error", (err) => {
+        console.error("Socket error:", err);
     });
 };
 
@@ -243,7 +243,7 @@ function startMediaServer() {
 const wss = new WebSocket.Server({
     noServer: true,
     clientTracking: true,
-    host: '0.0.0.0'
+    host: "0.0.0.0",
 });
 
 isHandshakeServerActive = true;
@@ -727,13 +727,15 @@ function streamAudio(ws, audioFile) {
     try {
         const chunks = fs.readFileSync(audioFile);
         console.log("Successfully read audio file. Size:", chunks.length);
+
         const chunkSize = 3200; // 100ms of 16-bit stereo audio at 16kHz
         let chunkIndex = 0;
         const totalChunks = Math.ceil(chunks.length / chunkSize);
 
+        console.log(`Total audio chunks: ${totalChunks}`);
+
         // Send stream state update
         sendStreamStateUpdate(ws, "ACTIVE");
-        console.log(`Total audio chunks: ${totalChunks}`);
 
         const intervalId = setInterval(() => {
             if (ws.readyState === WebSocket.OPEN && chunkIndex < totalChunks) {
@@ -741,25 +743,20 @@ function streamAudio(ws, audioFile) {
                 const end = Math.min(start + chunkSize, chunks.length);
                 const chunk = chunks.slice(start, end);
 
-                // Convert the PCM buffer to a base64 encoded string with specific format
-                const buffer = Buffer.alloc(chunk.length);
-                for (let i = 0; i < chunk.length; i += 2) {
-                    // Read 16-bit values and scale them to fit in the range
-                    const sample = chunk.readInt16LE(i);
-                    const scaledSample = Math.max(-32768, Math.min(32767, sample));
-                    buffer.writeInt16LE(scaledSample, i);
-                }
+                // Make sure we're encoding to Base64 without any weird padding issues
+                const encodedData = chunk.toString("base64");
 
                 const message = JSON.stringify({
                     msg_type: "MEDIA_DATA",
                     content: {
                         user_id: 0,
                         media_type: "AUDIO",
-                        data: buffer.toString("base64"),
+                        data: encodedData,
                         timestamp: Date.now(),
                         sequence: chunkIndex,
                     },
                 });
+
                 console.log(
                     `Sending chunk ${chunkIndex}, size: ${chunk.length}`,
                 );
@@ -780,7 +777,6 @@ function streamAudio(ws, audioFile) {
         return;
     }
 }
-
 // Add this function after streamAudio function
 function streamVideo(ws, videoFile) {
     try {
