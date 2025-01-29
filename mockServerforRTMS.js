@@ -6,8 +6,8 @@ const path = require("path");
 const { exec } = require("child_process");
 
 // Port configuration
-const HANDSHAKE_PORT = 9092;
-const MEDIA_STREAM_PORT = 8081;
+const HANDSHAKE_PORT = 3000;
+const MEDIA_STREAM_PORT = 3001;
 
 // Logging function
 function logWebSocketMessage(direction, type, message, path = "") {
@@ -46,7 +46,7 @@ handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
 });
 
 mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
-    console.log(`Media server running on port ${MEDIA_STREAM_PORT}`);
+    console.log(`Media server running on port ${MEDIA_STREAM_PORT} at ${process.env.REPLIT_DEV_DOMAIN || '0.0.0.0'}`);
     // Create WebSocket server attached to HTTP server
     mediaServer = new WebSocket.Server({ server: mediaHttpServer });
     setupMediaWebSocketServer(mediaServer);
