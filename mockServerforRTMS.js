@@ -42,7 +42,9 @@ const handshakeServer = require("http").createServer(handshakeApp);
 
 // Start both servers
 handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
-    console.log(`Handshake server running on port ${HANDSHAKE_PORT}`);
+    console.log(`Handshake server running on port ${HANDSHAKE_PORT} at 0.0.0.0`);
+}).on('error', (err) => {
+    console.error('Handshake server error:', err);
 });
 
 const corsOptions = {
@@ -58,12 +60,15 @@ mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
     const serverUrl = process.env.REPL_SLUG ? 
         `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` :
         `http://0.0.0.0:${MEDIA_STREAM_PORT}`;
-    console.log(`Media server running at ${serverUrl}`);
+    console.log(`Media server running at ${serverUrl} on port ${MEDIA_STREAM_PORT}`);
     mediaServer = new WebSocket.Server({ 
         server: mediaHttpServer,
-        path: "/all"
+        path: "/all",
+        perMessageDeflate: false
     });
     setupMediaWebSocketServer(mediaServer);
+}).on('error', (err) => {
+    console.error('Media server error:', err);
 });
 
 // Modify the server.on("upgrade") handler
