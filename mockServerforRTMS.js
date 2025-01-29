@@ -354,43 +354,33 @@ function validateCredentials(meeting_uuid, rtms_stream_id) {
 
 // Signaling handshake handler
 function handleSignalingHandshake(ws, message) {
-    // Add version check
     if (message.protocol_version !== 1) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "SIGNALING_HAND_SHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_INVALID_VERSION",
-                reason: "Unsupported protocol version",
-            }),
-        );
+        ws.send(JSON.stringify({
+            msg_type: "SIGNALING_HAND_SHAKE_RESP",
+            protocol_version: 1,
+            status_code: "STATUS_INVALID_VERSION",
+            reason: "Unsupported protocol version"
+        }));
         return;
     }
 
     const { meeting_uuid, rtms_stream_id, signature } = message;
 
-    // Validate handshake request
     if (!meeting_uuid || !rtms_stream_id || !signature) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "SIGNALING_HAND_SHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_INVALID_MESSAGE",
-                reason: "Missing required fields",
-            }),
-        );
+        ws.send(JSON.stringify({
+            msg_type: "SIGNALING_HAND_SHAKE_RESP",
+            protocol_version: 1,
+            status_code: "STATUS_INVALID_MESSAGE",
+            reason: "Missing required fields"
+        }));
         return;
     }
 
-    // Get credentials including client_id for signature validation
     const data = JSON.parse(fs.readFileSync(path.join(__dirname, "data", "rtms_credentials.json"), "utf8"));
-    const streamInfo = data.stream_meeting_info.find(info => 
-        info.meeting_uuid === meeting_uuid && 
-        info.rtms_stream_id === rtms_stream_id
-    );
-    const matchingCred = data.auth_credentials.find(cred => 
-        cred.accountId === streamInfo?.accountId
-    );
+    const streamInfo = data.stream_meeting_info.find(info => info.meeting_uuid === meeting_uuid);
+    
+    // Find matching credential from auth_credentials
+    const matchingCred = data.auth_credentials.find(cred => cred.accountId === "H2T8P7X9Q4L");
 
     if (!matchingCred) {
         ws.send(
