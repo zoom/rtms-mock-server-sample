@@ -741,12 +741,21 @@ function streamAudio(ws, audioFile) {
                 const end = Math.min(start + chunkSize, chunks.length);
                 const chunk = chunks.slice(start, end);
 
+                // Convert the PCM buffer to a base64 encoded string with specific format
+                const buffer = Buffer.alloc(chunk.length);
+                for (let i = 0; i < chunk.length; i += 2) {
+                    // Read 16-bit values and scale them to fit in the range
+                    const sample = chunk.readInt16LE(i);
+                    const scaledSample = Math.max(-32768, Math.min(32767, sample));
+                    buffer.writeInt16LE(scaledSample, i);
+                }
+
                 const message = JSON.stringify({
                     msg_type: "MEDIA_DATA",
                     content: {
                         user_id: 0,
                         media_type: "AUDIO",
-                        data: chunk.toString("base64"),
+                        data: buffer.toString("base64"),
                         timestamp: Date.now(),
                         sequence: chunkIndex,
                     },
