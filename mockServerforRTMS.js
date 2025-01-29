@@ -6,8 +6,8 @@ const path = require("path");
 const { exec } = require("child_process");
 
 // Port configuration
-const HANDSHAKE_PORT = 9092;
-const MEDIA_STREAM_PORT = 8081;
+const HANDSHAKE_PORT = 3000;
+const MEDIA_STREAM_PORT = 3001;
 
 // Logging function
 function logWebSocketMessage(direction, type, message, path = "") {
@@ -45,10 +45,24 @@ handshakeServer.listen(HANDSHAKE_PORT, "0.0.0.0", () => {
     console.log(`Handshake server running on port ${HANDSHAKE_PORT}`);
 });
 
+const corsOptions = {
+    origin: '*',
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+    optionsSuccessStatus: 204,
+};
+
+mediaApp.use(require('cors')(corsOptions));
+
 mediaHttpServer.listen(MEDIA_STREAM_PORT, "0.0.0.0", () => {
-    console.log(`Media server running on port ${MEDIA_STREAM_PORT}`);
-    // Create WebSocket server attached to HTTP server
-    mediaServer = new WebSocket.Server({ server: mediaHttpServer });
+    const serverUrl = process.env.REPL_SLUG ? 
+        `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` :
+        `http://0.0.0.0:${MEDIA_STREAM_PORT}`;
+    console.log(`Media server running at ${serverUrl}`);
+    mediaServer = new WebSocket.Server({ 
+        server: mediaHttpServer,
+        path: "/all"
+    });
     setupMediaWebSocketServer(mediaServer);
 });
 
