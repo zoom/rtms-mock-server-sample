@@ -101,11 +101,6 @@
 
                     mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
 
-                    mediaSocket.onopen = () => {
-                        console.log('Connected to media server');
-                        document.getElementById('videoContainer').style.display = 'block';
-                    };
-
                     mediaSocket.onclose = () => {
                         console.log('Media connection closed');
                         if (recognition) {
@@ -117,6 +112,10 @@
                         document.getElementById('stopBtn').disabled = true;
                         document.getElementById('endBtn').disabled = true;
                     };
+
+                    mediaSocket.onopen = () => {
+                        console.log('Connected to media server');
+                        document.getElementById('videoContainer').style.display = 'block';
 
                         const videoTrack = mediaStream.getVideoTracks()[0];
                         const videoStream = new MediaStream([videoTrack]);
