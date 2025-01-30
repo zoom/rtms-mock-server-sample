@@ -101,6 +101,21 @@
 
                     mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
 
+                    mediaSocket.onclose = () => {
+                        console.log('Media connection closed');
+                        if (recognition) {
+                            recognition.stop();
+                        }
+                        document.getElementById('sendBtn').disabled = false;
+                        document.getElementById('pauseBtn').disabled = true;
+                        document.getElementById('resumeBtn').disabled = true;
+                        document.getElementById('stopBtn').disabled = true;
+                    };
+
+                    mediaSocket.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                    };
+
                     mediaSocket.onopen = () => {
                         console.log('Connected to media server');
                         document.getElementById('videoContainer').style.display = 'block';
@@ -358,17 +373,6 @@
                     }, 100);
                 }
             }
-
-            mediaSocket.onclose = () => {
-                console.log('Media connection closed');
-                if (recognition) {
-                    recognition.stop();
-                }
-                document.getElementById('sendBtn').disabled = false;
-                document.getElementById('pauseBtn').disabled = true;
-                document.getElementById('resumeBtn').disabled = true;
-                document.getElementById('stopBtn').disabled = true;
-            };
 
             // Enable control buttons after successful connection
             document.getElementById('pauseBtn').disabled = false;
