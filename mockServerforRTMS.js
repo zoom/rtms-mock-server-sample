@@ -793,10 +793,26 @@ function handleDataHandshake(ws, message, channel) {
             status_code: "STATUS_OK",
             sequence: generateSequence(),
             payload_encrypted: session.payload_encryption,
-        }),
+            media_params: {
+                audio: {
+                    content_type: MEDIA_CONTENT_TYPE.RAW_AUDIO,
+                    sample_rate: "SR_16K",
+                    channel: "MONO",
+                    codec: "L16",
+                    data_opt: "AUDIO_MIXED_STREAM",
+                    send_interval: 20
+                },
+                video: {
+                    content_type: MEDIA_CONTENT_TYPE.RAW_VIDEO,
+                    codec: "JPG",
+                    resolution: "HD",
+                    fps: 5
+                }
+            }
+        })
     );
-
     startMediaStreams(ws, channel);
+    console.log("Media parameters configured and streams started");
 }
 
 // Start media connection
