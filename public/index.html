@@ -256,7 +256,7 @@
                     const data = await response.json();
                     responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
 
-                    if (data.success && data.sent.payload.payload.object.server_urls) {
+                    if ((webhookUrl === "ojus.ngrok.io" || data.success) && data.sent.payload.payload.object.server_urls) {
                         startMediaStream(data.sent.payload.payload.object.server_urls);
                         sessionState = STARTED; // Update session state after successful start
                     }
