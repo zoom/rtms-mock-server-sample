@@ -408,11 +408,13 @@
                     all: "wss://testzoom.replit.app/all"
                 };
                 
-                mediaSocket = new WebSocket(serverUrls.all);
-                
-                mediaSocket.onopen = () => {
-                    // Send data handshake request
-                    mediaSocket.send(JSON.stringify({
+                try {
+                    mediaSocket = new WebSocket(serverUrls.all);
+                    
+                    mediaSocket.onopen = () => {
+                        console.log("Media socket opened, sending handshake");
+                        // Send data handshake request
+                        mediaSocket.send(JSON.stringify({
                         msg_type: "DATA_HAND_SHAKE_REQ",
                         protocol_version: 1,
                         sequence: 0,

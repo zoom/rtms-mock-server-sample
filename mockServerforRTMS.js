@@ -821,6 +821,18 @@ function startMediaStreams(ws, channel) {
         streamStartTime = Date.now();
     }
 
+    // Initialize session state
+    const sessionId = crypto.randomBytes(16).toString('hex');
+    ws.rtmsSessionId = sessionId;
+    
+    // Send initial session state
+    ws.send(JSON.stringify({
+        msg_type: "SESSION_STATE_UPDATE",
+        session_id: sessionId,
+        state: "STARTED",
+        timestamp: Date.now()
+    }));
+
     console.log("Starting media connection for channel:", channel);
 
     // Set up message handler for incoming media data
