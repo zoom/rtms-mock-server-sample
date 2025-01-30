@@ -1189,9 +1189,9 @@ const DEFAULT_VIDEO_PARAMS = {
 
 // Add hardcoded values check
 function isHardcodedValues(meeting_uuid, rtms_stream_id, signature) {
-    return meeting_uuid === 'abc123456' && 
-           rtms_stream_id === 'abc123456' && 
-           signature === 'abc123456';
+    return meeting_uuid === 'abc12345' && 
+           rtms_stream_id === 'abc12345' && 
+           signature === 'abc12345';
 }
 
 function validateMediaParams(params) {
