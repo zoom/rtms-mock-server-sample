@@ -646,6 +646,21 @@ function handleDataHandshake(ws, message, channel) {
         signature,
     } = message;
 
+    // Check for hardcoded values first
+    if (isHardcodedValues(meeting_uuid, rtms_stream_id, signature)) {
+        ws.send(
+            JSON.stringify({
+                msg_type: "DATA_HANDSHAKE_RESP",
+                protocol_version: 1,
+                status_code: "STATUS_OK",
+                sequence: generateSequence(),
+                payload_encrypted: false
+            })
+        );
+        startMediaStreams(ws, channel);
+        return;
+    }
+
     // Validate required fields
     if (!meeting_uuid || !rtms_stream_id || !signature) {
         ws.send(
