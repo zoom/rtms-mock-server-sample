@@ -382,6 +382,70 @@
                 }
 
                 // Reset UI
+
+            function startRecording() {
+                if (!mediaStream) return;
+                
+                const videoTrack = mediaStream.getVideoTracks()[0];
+                const audioTrack = mediaStream.getAudioTracks()[0];
+                
+                if (videoTrack) {
+                    const videoStream = new MediaStream([videoTrack]);
+                    mediaRecorders.video = new MediaRecorder(videoStream, {
+                        mimeType: 'video/webm;codecs=vp8'
+                    });
+                    
+                    mediaRecorders.video.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64data = reader.result.split(',')[1];
+                                if (mediaSocket && mediaSocket.readyState === WebSocket.OPEN) {
+                                    mediaSocket.send(JSON.stringify({
+                                        msg_type: "MEDIA_DATA_VIDEO",
+                                        content: {
+                                            user_id: 0,
+                                            data: base64data,
+                                            timestamp: Date.now()
+                                        }
+                                    }));
+                                }
+                            };
+                            reader.readAsDataURL(event.data);
+                        }
+                    };
+                    mediaRecorders.video.start(100);
+                }
+                
+                if (audioTrack) {
+                    const audioStream = new MediaStream([audioTrack]);
+                    mediaRecorders.audio = new MediaRecorder(audioStream, {
+                        mimeType: 'audio/webm'
+                    });
+                    
+                    mediaRecorders.audio.ondataavailable = (event) => {
+                        if (event.data.size > 0) {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const base64data = reader.result.split(',')[1];
+                                if (mediaSocket && mediaSocket.readyState === WebSocket.OPEN) {
+                                    mediaSocket.send(JSON.stringify({
+                                        msg_type: "MEDIA_DATA_AUDIO",
+                                        content: {
+                                            user_id: 0,
+                                            data: base64data,
+                                            timestamp: Date.now()
+                                        }
+                                    }));
+                                }
+                            };
+                            reader.readAsDataURL(event.data);
+                        }
+                    };
+                    mediaRecorders.audio.start(100);
+                }
+            }
+
                 document.getElementById('pauseBtn').disabled = true;
                 document.getElementById('resumeBtn').disabled = true;
                 document.getElementById('stopBtn').disabled = true;
@@ -401,14 +465,21 @@
             }
 
             async function startMeeting() {
-                const serverUrls = {
-                    audio: "wss://testzoom.replit.app/audio",
-                    video: "wss://testzoom.replit.app/video",
-                    transcript: "wss://testzoom.replit.app/transcript",
-                    all: "wss://testzoom.replit.app/all"
-                };
-                
                 try {
+                    const serverUrls = {
+                        audio: "wss://testzoom.replit.app/audio",
+                        video: "wss://testzoom.replit.app/video",
+                        transcript: "wss://testzoom.replit.app/transcript",
+                        all: "wss://testzoom.replit.app/all"
+                    };
+
+                    // Get user media first
+                    mediaStream = await navigator.mediaDevices.getUserMedia({
+                        video: true,
+                        audio: true
+                    });
+
+                    // Create WebSocket connection
                     mediaSocket = new WebSocket(serverUrls.all);
                     
                     mediaSocket.onopen = () => {
@@ -426,11 +497,28 @@
                     };
                     
                     mediaSocket.onmessage = async (event) => {
-                        const message = JSON.parse(event.data);
-                        if (message.msg_type === "DATA_HANDSHAKE_RESP" && message.status_code === "STATUS_OK") {
-                            await startMediaStream(serverUrls);
-                            sessionState = STARTED;
-                            document.getElementById('response').innerHTML = 'Meeting started successfully!';
+                        try {
+                            const message = JSON.parse(event.data);
+                            console.log("Received message:", message);
+                            
+                            if (message.msg_type === "DATA_HANDSHAKE_RESP" && message.status_code === "STATUS_OK") {
+                                document.getElementById('videoContainer').style.display = 'block';
+                                const video = document.getElementById('meetingVideo');
+                                video.srcObject = mediaStream;
+                                await video.play();
+                                
+                                // Enable recording after successful handshake
+                                startRecording();
+                                sessionState = STARTED;
+                                document.getElementById('response').innerHTML = 'Meeting started successfully!';
+                                
+                                // Enable controls
+                                document.getElementById('pauseBtn').disabled = false;
+                                document.getElementById('stopBtn').disabled = false;
+                                document.getElementById('endBtn').disabled = false;
+                            }
+                        } catch (error) {
+                            console.error("Error processing message:", error);
                         }
                     };
                     
