@@ -408,9 +408,35 @@
                     all: "wss://testzoom.replit.app/all"
                 };
                 
-                await startMediaStream(serverUrls);
-                sessionState = STARTED;
-                document.getElementById('response').innerHTML = 'Meeting started successfully!';
+                mediaSocket = new WebSocket(serverUrls.all);
+                
+                mediaSocket.onopen = () => {
+                    // Send data handshake request
+                    mediaSocket.send(JSON.stringify({
+                        msg_type: "DATA_HAND_SHAKE_REQ",
+                        protocol_version: 1,
+                        sequence: 0,
+                        meeting_uuid: "abc123456",
+                        rtms_stream_id: "abc123456",
+                        signature: "abc123456",
+                        media_type: "ALL",
+                        payload_encryption: false
+                    }));
+                };
+                
+                mediaSocket.onmessage = async (event) => {
+                    const message = JSON.parse(event.data);
+                    if (message.msg_type === "DATA_HANDSHAKE_RESP" && message.status_code === "STATUS_OK") {
+                        await startMediaStream(serverUrls);
+                        sessionState = STARTED;
+                        document.getElementById('response').innerHTML = 'Meeting started successfully!';
+                    }
+                };
+                
+                mediaSocket.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    document.getElementById('response').innerHTML = 'Failed to start meeting';
+                };
             }
         </script>
     </body>
