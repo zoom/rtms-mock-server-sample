@@ -824,7 +824,7 @@ function startMediaStreams(ws, channel) {
     // Initialize session state
     const sessionId = crypto.randomBytes(16).toString('hex');
     ws.rtmsSessionId = sessionId;
-    
+
     // Send initial session state
     ws.send(JSON.stringify({
         msg_type: "SESSION_STATE_UPDATE",
@@ -997,7 +997,7 @@ function sendActiveSpeakerUpdate(ws, currentId, newId, name) {
         JSON.stringify({
             msg_type: "EVENT_UPDATE",
             event: {
-                event_type: "ACTIVE_SPEAKER_CHANGE",
+                event_type: "ACTIVE_SPEAKERCHANGE",
                 current_id: currentId, // 0|11223344 (0 means first speaker)
                 new_id: newId,
                 name: name,
