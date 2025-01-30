@@ -413,33 +413,51 @@
                     
                     mediaSocket.onopen = () => {
                         console.log("Media socket opened, sending handshake");
-                        // Send data handshake request
                         mediaSocket.send(JSON.stringify({
-                        msg_type: "DATA_HAND_SHAKE_REQ",
-                        protocol_version: 1,
-                        sequence: 0,
-                        meeting_uuid: "abc123456",
-                        rtms_stream_id: "abc123456",
-                        signature: "abc123456",
-                        media_type: "ALL",
-                        payload_encryption: false
-                    }));
-                };
-                
-                mediaSocket.onmessage = async (event) => {
-                    const message = JSON.parse(event.data);
-                    if (message.msg_type === "DATA_HANDSHAKE_RESP" && message.status_code === "STATUS_OK") {
-                        await startMediaStream(serverUrls);
-                        sessionState = STARTED;
-                        document.getElementById('response').innerHTML = 'Meeting started successfully!';
-                    }
-                };
-                
-                mediaSocket.onerror = (error) => {
-                    console.error('WebSocket error:', error);
-                    document.getElementById('response').innerHTML = 'Failed to start meeting';
-                };
+                            msg_type: "DATA_HAND_SHAKE_REQ",
+                            protocol_version: 1,
+                            sequence: 0,
+                            meeting_uuid: "abc123456",
+                            rtms_stream_id: "abc123456",
+                            signature: "abc123456",
+                            media_type: "ALL",
+                            payload_encryption: false
+                        }));
+                    };
+                    
+                    mediaSocket.onmessage = async (event) => {
+                        const message = JSON.parse(event.data);
+                        if (message.msg_type === "DATA_HANDSHAKE_RESP" && message.status_code === "STATUS_OK") {
+                            await startMediaStream(serverUrls);
+                            sessionState = STARTED;
+                            document.getElementById('response').innerHTML = 'Meeting started successfully!';
+                        }
+                    };
+                    
+                    mediaSocket.onerror = (error) => {
+                        console.error('WebSocket error:', error);
+                        document.getElementById('response').innerHTML = 'Failed to start meeting';
+                    };
+                    
+                    mediaSocket.onclose = () => {
+                        console.log("Media socket closed");
+                    };
+                } catch (error) {
+                    console.error("Error starting meeting:", error);
+                    document.getElementById('response').innerHTML = 'Failed to start meeting: ' + error.message;
+                }
             }
+
+            // Move button event handlers inside DOMContentLoaded
+            document.addEventListener('DOMContentLoaded', () => {
+                document.getElementById('validateBtn').onclick = validateWebhook;
+                document.getElementById('sendBtn').onclick = sendWebhook;
+                document.getElementById('startMeetingBtn').onclick = startMeeting;
+                document.getElementById('pauseBtn').onclick = pauseSession;
+                document.getElementById('resumeBtn').onclick = resumeSession;
+                document.getElementById('stopBtn').onclick = stopSession;
+                document.getElementById('endBtn').onclick = endMeeting;
+            });
         </script>
     </body>
 </html>
