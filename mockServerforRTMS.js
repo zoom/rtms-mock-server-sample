@@ -407,32 +407,6 @@ function handleSignalingHandshake(ws, message) {
         return;
     }
 
-    // Check for hardcoded values
-    if (isHardcodedValues(meeting_uuid, rtms_stream_id, signature)) {
-        // Store valid session with hardcoded values
-        clientSessions.set(ws, {
-            meeting_uuid: meeting_uuid,
-            rtms_stream_id: rtms_stream_id,
-            handshakeCompleted: true
-        });
-
-        const response = {
-            msg_type: "SIGNALING_HAND_SHAKE_RESP",
-            protocol_version: 1,
-            status_code: "STATUS_OK",
-            media_server: {
-                server_urls: {
-                    audio: `wss://testzoom.replit.app/audio`,
-                    video: `wss://testzoom.replit.app/video`,
-                    transcript: `wss://testzoom.replit.app/transcript`,
-                    all: `wss://testzoom.replit.app/all`,
-                }
-            }
-        };
-        ws.send(JSON.stringify(response));
-        return;
-    }
-
     // Load credentials from rtms_credentials.json
     const data = JSON.parse(
         fs.readFileSync(
@@ -646,25 +620,6 @@ function handleDataHandshake(ws, message, channel) {
         signature,
     } = message;
 
-    // Check for hardcoded values first
-    if (isHardcodedValues(meeting_uuid, rtms_stream_id, signature)) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_OK",
-                sequence: generateSequence(),
-                payload_encrypted: false,
-                media_params: {
-                    audio: DEFAULT_AUDIO_PARAMS,
-                    video: DEFAULT_VIDEO_PARAMS
-                }
-            })
-        );
-        startMediaStreams(ws, channel);
-        return;
-    }
-
     // Validate required fields
     if (!meeting_uuid || !rtms_stream_id || !signature) {
         ws.send(
@@ -793,26 +748,10 @@ function handleDataHandshake(ws, message, channel) {
             status_code: "STATUS_OK",
             sequence: generateSequence(),
             payload_encrypted: session.payload_encryption,
-            media_params: {
-                audio: {
-                    content_type: MEDIA_CONTENT_TYPE.RAW_AUDIO,
-                    sample_rate: "SR_16K",
-                    channel: "MONO",
-                    codec: "L16",
-                    data_opt: "AUDIO_MIXED_STREAM",
-                    send_interval: 20
-                },
-                video: {
-                    content_type: MEDIA_CONTENT_TYPE.RAW_VIDEO,
-                    codec: "JPG",
-                    resolution: "HD",
-                    fps: 5
-                }
-            }
-        })
+        }),
     );
+
     startMediaStreams(ws, channel);
-    console.log("Media parameters configured and streams started");
 }
 
 // Start media connection
@@ -820,18 +759,6 @@ function startMediaStreams(ws, channel) {
     if (!streamStartTime) {
         streamStartTime = Date.now();
     }
-
-    // Initialize session state
-    const sessionId = crypto.randomBytes(16).toString('hex');
-    ws.rtmsSessionId = sessionId;
-
-    // Send initial session state
-    ws.send(JSON.stringify({
-        msg_type: "SESSION_STATE_UPDATE",
-        session_id: sessionId,
-        state: "STARTED",
-        timestamp: Date.now()
-    }));
 
     console.log("Starting media connection for channel:", channel);
 
@@ -997,7 +924,7 @@ function sendActiveSpeakerUpdate(ws, currentId, newId, name) {
         JSON.stringify({
             msg_type: "EVENT_UPDATE",
             event: {
-                event_type: "ACTIVE_SPEAKERCHANGE",
+                event_type: "ACTIVE_SPEAKER_CHANGE",
                 current_id: currentId, // 0|11223344 (0 means first speaker)
                 new_id: newId,
                 name: name,
@@ -1186,13 +1113,6 @@ const DEFAULT_VIDEO_PARAMS = {
     resolution: "HD",
     fps: 5,
 };
-
-// Add hardcoded values check
-function isHardcodedValues(meeting_uuid, rtms_stream_id, signature) {
-    return meeting_uuid === 'abc12345' && 
-           rtms_stream_id === 'abc12345' && 
-           signature === 'abc12345';
-}
 
 function validateMediaParams(params) {
     // If no params provided, use defaults
