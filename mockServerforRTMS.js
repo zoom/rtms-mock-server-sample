@@ -654,7 +654,11 @@ function handleDataHandshake(ws, message, channel) {
                 protocol_version: 1,
                 status_code: "STATUS_OK",
                 sequence: generateSequence(),
-                payload_encrypted: false
+                payload_encrypted: false,
+                media_params: {
+                    audio: DEFAULT_AUDIO_PARAMS,
+                    video: DEFAULT_VIDEO_PARAMS
+                }
             })
         );
         startMediaStreams(ws, channel);
