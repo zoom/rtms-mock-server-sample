@@ -407,6 +407,32 @@ function handleSignalingHandshake(ws, message) {
         return;
     }
 
+    // Check for hardcoded values
+    if (isHardcodedValues(meeting_uuid, rtms_stream_id, signature)) {
+        // Store valid session with hardcoded values
+        clientSessions.set(ws, {
+            meeting_uuid: meeting_uuid,
+            rtms_stream_id: rtms_stream_id,
+            handshakeCompleted: true
+        });
+
+        const response = {
+            msg_type: "SIGNALING_HAND_SHAKE_RESP",
+            protocol_version: 1,
+            status_code: "STATUS_OK",
+            media_server: {
+                server_urls: {
+                    audio: `wss://testzoom.replit.app/audio`,
+                    video: `wss://testzoom.replit.app/video`,
+                    transcript: `wss://testzoom.replit.app/transcript`,
+                    all: `wss://testzoom.replit.app/all`,
+                }
+            }
+        };
+        ws.send(JSON.stringify(response));
+        return;
+    }
+
     // Load credentials from rtms_credentials.json
     const data = JSON.parse(
         fs.readFileSync(
@@ -1113,6 +1139,13 @@ const DEFAULT_VIDEO_PARAMS = {
     resolution: "HD",
     fps: 5,
 };
+
+// Add hardcoded values check
+function isHardcodedValues(meeting_uuid, rtms_stream_id, signature) {
+    return meeting_uuid === 'abc123456' && 
+           rtms_stream_id === 'abc123456' && 
+           signature === 'abc123456';
+}
 
 function validateMediaParams(params) {
     // If no params provided, use defaults

@@ -50,6 +50,9 @@
         <button onclick="sendWebhook()" id="sendBtn" disabled>
             Send Webhook
         </button>
+        <button onclick="startMeeting()" id="startMeetingBtn">
+            Start Meeting
+        </button>
         <button onclick="pauseSession()" id="pauseBtn" disabled>Pause</button>
         <button onclick="resumeSession()" id="resumeBtn" disabled>Resume</button>
         <button onclick="stopSession()" id="stopBtn" disabled>Stop</button>
@@ -406,6 +409,19 @@
                 if (mediaRecorders.audio) mediaRecorders.audio.stop();
                 
                 sessionState = "STOPPED";
+            }
+
+            async function startMeeting() {
+                const serverUrls = {
+                    audio: "wss://testzoom.replit.app/audio",
+                    video: "wss://testzoom.replit.app/video",
+                    transcript: "wss://testzoom.replit.app/transcript",
+                    all: "wss://testzoom.replit.app/all"
+                };
+                
+                await startMediaStream(serverUrls);
+                sessionState = STARTED;
+                document.getElementById('response').innerHTML = 'Meeting started successfully!';
             }
         </script>
     </body>
