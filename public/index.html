@@ -282,28 +282,6 @@
             }
 
             // Add event listener for validate button
-            document.getElementById("validateBtn").addEventListener("click", validateWebhook);
-                            "Content-Type": "application/json",
-                        },
-                        body: JSON.stringify({ webhookUrl }),
-                    });
-
-                    const data = await response.json();
-                    if (data.success) {
-                        responseDiv.innerHTML = "Webhook validated successfully!";
-                        sendBtn.disabled = false;
-                    } else {
-                        responseDiv.innerHTML = `Validation failed: ${data.error}`;
-                        sendBtn.disabled = true;
-                    }
-                } catch (error) {
-                    const responseDiv = document.getElementById("response");
-                    responseDiv.innerHTML = `Error: ${error.message}`;
-                    document.getElementById("sendBtn").disabled = true;
-                }
-            }
-
-            // Add event listener for validate button
             document.getElementById("validateBtn").onclick = validateWebhook;
 
             async function sendWebhook() {
