@@ -359,18 +359,16 @@
                 }
             }
 
-            if (mediaSocket) {
-                mediaSocket.onclose = () => {
-                    console.log('Media connection closed');
-                    if (recognition) {
-                        recognition.stop();
-                    }
-                    document.getElementById('sendBtn').disabled = false;
-                    document.getElementById('pauseBtn').disabled = true;
-                    document.getElementById('resumeBtn').disabled = true;
-                    document.getElementById('stopBtn').disabled = true;
-                };
-            }
+            mediaSocket.onclose = () => {
+                console.log('Media connection closed');
+                if (recognition) {
+                    recognition.stop();
+                }
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('resumeBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+            };
 
             // Enable control buttons after successful connection
             document.getElementById('pauseBtn').disabled = false;
@@ -378,40 +376,6 @@
             document.getElementById('stopBtn').disabled = false;
             document.getElementById('endBtn').disabled = false;
             document.getElementById('sendBtn').disabled = true;
-
-            async function validateWebhook() {
-                const webhookUrl = document.getElementById("webhookUrl").value;
-                const responseDiv = document.getElementById("response");
-                const sendBtn = document.getElementById("sendBtn");
-
-                if (!webhookUrl) {
-                    responseDiv.innerHTML = "Please enter a webhook URL";
-                    sendBtn.disabled = true;
-                    return;
-                }
-
-                try {
-                    const response = await fetch("/api/validate-webhook", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json"
-                        },
-                        body: JSON.stringify({ webhookUrl })
-                    });
-
-                    const data = await response.json();
-                    if (data.success) {
-                        responseDiv.innerHTML = "Webhook validated successfully!";
-                        sendBtn.disabled = false;
-                    } else {
-                        responseDiv.innerHTML = `Validation failed: ${data.error}`;
-                        sendBtn.disabled = true;
-                    }
-                } catch (error) {
-                    responseDiv.innerHTML = `Error: ${error.message}`;
-                    sendBtn.disabled = true;
-                }
-            }
 
             function endMeeting() {
                 // Send stream termination message
