@@ -127,6 +127,51 @@ handshakeApp.get("/health", (req, res) => {
     res.status(200).send("OK");
 });
 
+const multer = require('multer');
+const upload = multer({ dest: 'uploads/' });
+
+handshakeApp.post('/convert-audio', upload.single('audio'), async (req, res) => {
+    const inputFile = req.file.path;
+    const outputFile = inputFile + '.pcm';
+    
+    convertToPCM(inputFile, outputFile, (error) => {
+        if (error) {
+            res.status(500).json({ error: 'Audio conversion failed' });
+            return;
+        }
+        
+        const pcmData = fs.readFileSync(outputFile);
+        const base64data = pcmData.toString('base64');
+        
+        // Cleanup
+        fs.unlinkSync(inputFile);
+        fs.unlinkSync(outputFile);
+        
+        res.json({ data: base64data });
+    });
+});
+
+handshakeApp.post('/convert-video', upload.single('video'), async (req, res) => {
+    const inputFile = req.file.path;
+    const fps = 5; // Adjust based on your needs
+    
+    convertVideo(inputFile, fps, (error, outputFile) => {
+        if (error) {
+            res.status(500).json({ error: 'Video conversion failed' });
+            return;
+        }
+        
+        const videoData = fs.readFileSync(outputFile);
+        const base64data = videoData.toString('base64');
+        
+        // Cleanup
+        fs.unlinkSync(inputFile);
+        fs.unlinkSync(outputFile);
+        
+        res.json({ data: base64data });
+    });
+});
+
 // Ensure health check returns quickly
 handshakeApp.get("/health", (req, res) => {
     res.status(200).json({ status: "ok" });
@@ -157,9 +202,9 @@ function generateSequence() {
     return sequenceCounter;
 }
 
-// Convert a media file to PCM format
+// Convert audio to PCM L16 16KHz Mono
 function convertToPCM(inputFile, outputFile, callback) {
-    const command = `ffmpeg -y -i "${inputFile}" -f s16le -acodec pcm_s16le -ar 44100 -ac 2 "${outputFile}"`;
+    const command = `ffmpeg -y -i "${inputFile}" -f s16le -acodec pcm_s16le -ar 16000 -ac 1 "${outputFile}"`;
     exec(command, (error, stdout, stderr) => {
         if (error) {
             console.error(`Error converting file ${inputFile}:`, error);
@@ -167,6 +212,26 @@ function convertToPCM(inputFile, outputFile, callback) {
             console.log(`Converted ${inputFile} to ${outputFile}`);
         }
         callback(error);
+    });
+}
+
+// Convert video based on FPS
+function convertVideo(inputFile, fps, callback) {
+    const outputFile = fps <= 5 ? 
+        inputFile.replace('.webm', '_%04d.jpg') :
+        inputFile.replace('.webm', '.mp4');
+        
+    const command = fps <= 5 ?
+        `ffmpeg -i "${inputFile}" -vf fps=${fps} -q:v 2 "${outputFile}"` :
+        `ffmpeg -i "${inputFile}" -c:v libx264 -preset ultrafast -crf 18 -r ${fps} "${outputFile}"`;
+    
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error converting video ${inputFile}:`, error);
+        } else {
+            console.log(`Converted ${inputFile} to ${outputFile}`);
+        }
+        callback(error, outputFile);
     });
 }
 

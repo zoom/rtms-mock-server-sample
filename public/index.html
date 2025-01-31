@@ -107,33 +107,74 @@
 
                         const videoTrack = mediaStream.getVideoTracks()[0];
                         const videoStream = new MediaStream([videoTrack]);
+                        // Configure video based on FPS
+                        const FPS = 5; // Set to 5 or lower for JPG, higher for H264
                         mediaRecorders.video = new MediaRecorder(videoStream, {
-                            mimeType: 'video/webm;codecs=vp8'
+                            mimeType: FPS <= 5 ? 'video/webm;codecs=vp8' : 'video/webm;codecs=h264',
+                            videoBitsPerSecond: 1000000
                         });
 
-                        mediaRecorders.video.ondataavailable = (event) => {
+                        mediaRecorders.video.ondataavailable = async (event) => {
                             if (event.data.size > 0) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                    const base64data = reader.result.split(',')[1];
+                                const blob = new Blob([event.data], { type: 'video/webm' });
+                                const formData = new FormData();
+                                formData.append('video', blob);
+                                
+                                try {
+                                    const response = await fetch('/convert-video', {
+                                        method: 'POST',
+                                        body: formData
+                                    });
+                                    
+                                    const convertedData = await response.json();
                                     mediaSocket.send(JSON.stringify({
                                         msg_type: "MEDIA_DATA_VIDEO",
                                         content: {
                                             user_id: 0,
-                                            data: base64data,
+                                            data: convertedData.data,
                                             timestamp: Date.now()
                                         }
                                     }));
-                                };
-                                reader.readAsDataURL(event.data);
+                                } catch (error) {
+                                    console.error('Error converting video:', error);
+                                }
                             }
                         };
 
                         const audioTrack = mediaStream.getAudioTracks()[0];
                         const audioStream = new MediaStream([audioTrack]);
                         mediaRecorders.audio = new MediaRecorder(audioStream, {
-                            mimeType: 'audio/webm'
+                            mimeType: 'audio/webm;codecs=opus',
+                            audioBitsPerSecond: 128000
                         });
+
+                        // Convert audio to PCM before sending
+                        mediaRecorders.audio.ondataavailable = async (event) => {
+                            if (event.data.size > 0) {
+                                const blob = new Blob([event.data], { type: 'audio/webm' });
+                                const formData = new FormData();
+                                formData.append('audio', blob);
+                                
+                                try {
+                                    const response = await fetch('/convert-audio', {
+                                        method: 'POST',
+                                        body: formData
+                                    });
+                                    
+                                    const convertedData = await response.json();
+                                    mediaSocket.send(JSON.stringify({
+                                        msg_type: "MEDIA_DATA_AUDIO",
+                                        content: {
+                                            user_id: 0,
+                                            data: convertedData.data,
+                                            timestamp: Date.now()
+                                        }
+                                    }));
+                                } catch (error) {
+                                    console.error('Error converting audio:', error);
+                                }
+                            }
+                        };
 
                         mediaRecorders.audio.ondataavailable = (event) => {
                             if (event.data.size > 0) {
