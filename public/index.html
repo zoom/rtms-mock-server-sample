@@ -252,6 +252,12 @@
                     const responseDiv = document.getElementById("response");
                     const sendBtn = document.getElementById("sendBtn");
 
+                    if (!webhookUrl) {
+                        responseDiv.innerHTML = "Please enter a webhook URL";
+                        sendBtn.disabled = true;
+                        return;
+                    }
+
                     const response = await fetch("/api/validate-webhook", {
                         method: "POST",
                         headers: {
@@ -274,6 +280,9 @@
                     document.getElementById("sendBtn").disabled = true;
                 }
             }
+
+            // Add event listener for validate button
+            document.getElementById("validateBtn").onclick = validateWebhook;
 
             async function sendWebhook() {
                 const webhookUrl = document.getElementById("webhookUrl").value;
