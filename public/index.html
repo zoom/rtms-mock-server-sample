@@ -130,13 +130,47 @@
                         };
 
                         const audioTrack = mediaStream.getAudioTracks()[0];
-                        const audioStream = new MediaStream([audioTrack]);
-                        mediaRecorders.audio = new MediaRecorder(audioStream, {
-                            mimeType: 'audio/webm'
-                        });
+                        const audioContext = new AudioContext({ sampleRate: 16000 });
+                        const source = audioContext.createMediaStreamSource(new MediaStream([audioTrack]));
+                        const scriptProcessor = audioContext.createScriptProcessor(1024, 1, 1);
+                        
+                        source.connect(scriptProcessor);
+                        scriptProcessor.connect(audioContext.destination);
+                        
+                        scriptProcessor.onaudioprocess = (e) => {
+                            const inputData = e.inputBuffer.getChannelData(0);
+                            // Convert float32 to int16 (L16 format)
+                            const int16Data = new Int16Array(inputData.length);
+                            for (let i = 0; i < inputData.length; i++) {
+                                int16Data[i] = Math.max(-32768, Math.min(32767, Math.floor(inputData[i] * 32768)));
+                            }
+                            
+                            // Send audio data
+                            mediaSocket.send(JSON.stringify({
+                                msg_type: "MEDIA_DATA_AUDIO",
+                                content: {
+                                    user_id: 0,
+                                    data: btoa(String.fromCharCode.apply(null, new Uint8Array(int16Data.buffer))),
+                                    timestamp: Date.now()
+                                }
+                            }));
+                        };
 
-                        mediaRecorders.audio.ondataavailable = (event) => {
-                            if (event.data.size > 0) {
+                        // Keep MediaRecorder for compatibility
+                        mediaRecorders.audio = {
+                            stop: () => {
+                                if (scriptProcessor) {
+                                    scriptProcessor.disconnect();
+                                    source.disconnect();
+                                }
+                            },
+                            start: () => {
+                                source.connect(scriptProcessor);
+                                scriptProcessor.connect(audioContext.destination);
+                            }
+                        };
+
+                        if (event.data.size > 0) {
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
                                     const base64data = reader.result.split(',')[1];
