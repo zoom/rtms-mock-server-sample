@@ -101,21 +101,6 @@
 
                     mediaSocket = new WebSocket(`${serverUrl}/all`.replace('https://', 'wss://'));
 
-                    mediaSocket.onclose = () => {
-                        console.log('Media connection closed');
-                        if (recognition) {
-                            recognition.stop();
-                        }
-                        document.getElementById('sendBtn').disabled = false;
-                        document.getElementById('pauseBtn').disabled = true;
-                        document.getElementById('resumeBtn').disabled = true;
-                        document.getElementById('stopBtn').disabled = true;
-                    };
-
-                    mediaSocket.onerror = (error) => {
-                        console.error('WebSocket error:', error);
-                    };
-
                     mediaSocket.onopen = () => {
                         console.log('Connected to media server');
                         document.getElementById('videoContainer').style.display = 'block';
@@ -271,7 +256,7 @@
                     const data = await response.json();
                     responseDiv.innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
 
-                    if ((webhookUrl === "ojus.ngrok.io" || data.success) && data.sent.payload.payload.object.server_urls) {
+                    if (data.success && data.sent.payload.payload.object.server_urls) {
                         startMediaStream(data.sent.payload.payload.object.server_urls);
                         sessionState = STARTED; // Update session state after successful start
                     }
@@ -373,6 +358,17 @@
                     }, 100);
                 }
             }
+
+            mediaSocket.onclose = () => {
+                console.log('Media connection closed');
+                if (recognition) {
+                    recognition.stop();
+                }
+                document.getElementById('sendBtn').disabled = false;
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('resumeBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = true;
+            };
 
             // Enable control buttons after successful connection
             document.getElementById('pauseBtn').disabled = false;

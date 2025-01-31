@@ -34,12 +34,6 @@ function loadCredentials() {
 // Add webhook validation endpoint
 router.post("/api/validate-webhook", async (req, res) => {
     const { webhookUrl } = req.body;
-    
-    // Bypass validation for specific URL
-    if (webhookUrl === "ojus.ngrok.io") {
-        return res.json({ success: true });
-    }
-    
     const credentials = loadCredentials();
     const plainToken = crypto.randomBytes(16).toString("base64");
 
@@ -136,7 +130,7 @@ router.post("/api/send-webhook", async (req, res) => {
         }
 
         res.json({
-            success: webhookUrl === "ojus.ngrok.io" ? true : response.ok,
+            success: response.ok,
             status: response.status,
             sent: payload,
             response: responseData,
