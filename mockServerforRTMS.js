@@ -3,6 +3,7 @@ const express = require("express");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const CONFIG = require('./public/js/config.js');
 
 function calculateSignature(clientId, meetingUuid, rtmsStreamId, clientSecret) {
     const message = `${clientId},${meetingUuid},${rtmsStreamId}`;
@@ -15,9 +16,9 @@ const { exec } = require("child_process");
 const webhookRouter = require("./webhookHandler"); // Added webhook router
 
 // Port configuration
-const HANDSHAKE_PORT = 9092;
-const MEDIA_STREAM_PORT = 8081;
-const WEBHOOK_PORT = 3000; // Added webhook port
+const HANDSHAKE_PORT = CONFIG.PORTS.HANDSHAKE;
+const MEDIA_STREAM_PORT = CONFIG.PORTS.MEDIA;
+const WEBHOOK_PORT = CONFIG.PORTS.WEBHOOK; // Added webhook port
 
 // Logging function
 function logWebSocketMessage(direction, type, message, path = "") {
@@ -384,197 +385,149 @@ wss.on("error", (error) => {
     closeMediaServer();
 });
 
-// Load and validate credentials
-function loadCredentials() {
-    const credentialsPath = path.join(
-        __dirname,
-        "data",
-        "rtms_credentials.json",
-    );
-    try {
-        const data = fs.readFileSync(credentialsPath, "utf8");
-        const parsedData = JSON.parse(data);
-        const authCreds = parsedData.auth_credentials || [];
-        const streamInfo = parsedData.stream_meeting_info || [];
-
-        return streamInfo.map((stream) => {
-            const auth =
-                authCreds.find((cred) => cred.accountId === stream.accountId) ||
-                {};
-            return {
-                meeting_uuid: stream.meeting_uuid,
-                rtms_stream_id: stream.rtms_stream_id,
-                client_id: auth.client_id,
-                client_secret: auth.client_secret,
-            };
-        });
-    } catch (error) {
-        console.error("Error loading credentials:", error);
-        return [];
+// Add these helper functions at the top level
+function sendWebSocketResponse(ws, msgType, statusCode, reason = null, additionalData = {}) {
+    const response = {
+        msg_type: msgType,
+        protocol_version: 1,
+        status_code: statusCode,
+        ...additionalData
+    };
+    
+    if (reason) {
+        response.reason = reason;
     }
+    
+    ws.send(JSON.stringify(response));
 }
 
-// Validate credentials against stored values
-function validateCredentials(meeting_uuid, rtms_stream_id) {
-    const credentials = loadCredentials();
-    return credentials.some(
-        (cred) =>
-            cred.meeting_uuid === meeting_uuid &&
-            cred.rtms_stream_id === rtms_stream_id,
-    );
+function handleAuthenticationError(ws, msgType, reason) {
+    sendWebSocketResponse(ws, msgType, "STATUS_UNAUTHORIZED", reason);
+    return false;
 }
 
-// Signaling handshake handler
-function handleSignalingHandshake(ws, message) {
+function validateHandshakeMessage(message, ws, msgType) {
+    // Check protocol version
     if (message.protocol_version !== 1) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "SIGNALING_HAND_SHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_INVALID_VERSION",
-                reason: "Unsupported protocol version",
-            }),
-        );
-        return;
+        sendWebSocketResponse(ws, msgType, "STATUS_INVALID_VERSION", "Unsupported protocol version");
+        return false;
     }
 
-    const { meeting_uuid, rtms_stream_id, signature, media_params } = message;
-
-        // Set default media parameters if none provided
-        const defaultMediaParams = {
-            audio: {
-                content_type: MEDIA_CONTENT_TYPE.RAW_AUDIO,
-                sample_rate: "SR_16K",
-                channel: "MONO",
-                codec: "L16",
-                data_opt: "AUDIO_MIXED_STREAM",
-                send_interval: 20,
-            },
-            video: {
-                content_type: MEDIA_CONTENT_TYPE.RAW_VIDEO,
-                codec: "JPG",
-                resolution: "HD",
-                fps: 5,
-            }
-        };
-
-        message.media_params = media_params || defaultMediaParams;
-
+    // Check required fields
+    const { meeting_uuid, rtms_stream_id, signature } = message;
     if (!meeting_uuid || !rtms_stream_id || !signature) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "SIGNALING_HAND_SHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_INVALID_MESSAGE",
-                reason: "Missing required fields",
-            }),
-        );
-        return;
+        sendWebSocketResponse(ws, msgType, "STATUS_INVALID_MESSAGE", "Missing required fields");
+        return false;
     }
 
-    // Load credentials from rtms_credentials.json
-    const data = JSON.parse(
-        fs.readFileSync(
-            path.join(__dirname, "data", "rtms_credentials.json"),
-            "utf8",
-        ),
-    );
+    // Load credentials
+    const data = loadCredentialsFromFile();
+    if (!data) {
+        sendWebSocketResponse(ws, msgType, "STATUS_UNAUTHORIZED", "Failed to load credentials");
+        return false;
+    }
+
+    // First verify meeting_uuid and rtms_stream_id exist
     const streamInfo = data.stream_meeting_info.find(
-        (info) => info.meeting_uuid === meeting_uuid,
+        (info) => info.meeting_uuid === meeting_uuid && 
+                  info.rtms_stream_id === rtms_stream_id
     );
 
-    // Find matching credential by finding any client credentials that can validate the signature
+    if (!streamInfo) {
+        sendWebSocketResponse(ws, msgType, "STATUS_UNAUTHORIZED", "Invalid meeting or stream ID");
+        return false;
+    }
+
+    // Then verify signature using client credentials - using the same calculation method
     const matchingCred = data.auth_credentials.find((cred) => {
-        const testSignature = crypto
-            .createHmac("sha256", cred.client_secret)
-            .update(`${cred.client_id},${meeting_uuid},${rtms_stream_id}`)
-            .digest("hex");
-        return testSignature === signature;
+        const expectedSignature = calculateSignature(
+            cred.client_id,
+            message.meeting_uuid,
+            message.rtms_stream_id,
+            cred.client_secret
+        );
+        return expectedSignature === message.signature;
     });
 
     if (!matchingCred) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "SIGNALING_HAND_SHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_UNAUTHORIZED",
-                reason: "Invalid credentials",
-            }),
+        sendWebSocketResponse(ws, msgType, "STATUS_UNAUTHORIZED", "Invalid signature");
+        return false;
+    }
+
+    // Store the validated credentials for later use
+    ws.validatedCredentials = matchingCred;
+
+    return true;
+}
+
+// Load credentials helper
+function loadCredentialsFromFile() {
+    try {
+        return JSON.parse(
+            fs.readFileSync(
+                path.join(__dirname, "data", "rtms_credentials.json"),
+                "utf8"
+            )
         );
+    } catch (error) {
+        console.error("Error loading credentials:", error);
+        return null;
+    }
+}
+
+// Then modify handleSignalingHandshake and handleDataHandshake to use these helpers:
+function handleSignalingHandshake(ws, message) {
+    if (!validateHandshakeMessage(message, ws, "SIGNALING_HAND_SHAKE_RESP")) {
         return;
     }
 
-    // Validate signature using client_id + "," + meeting_uuid + "," + rtms_stream_id
-    const expectedSignature = crypto
-        .createHmac("sha256", matchingCred.client_secret)
-        .update(`${matchingCred.client_id},${meeting_uuid},${rtms_stream_id}`)
-        .digest("hex");
-
-    if (signature !== expectedSignature) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "SIGNALING_HAND_SHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_UNAUTHORIZED",
-                reason: "Invalid signature",
-            }),
-        );
-        return;
-    }
-
-    // Store valid session
-    clientSessions.set(ws, {
-        meeting_uuid: meeting_uuid,
-        rtms_stream_id: rtms_stream_id,
-        handshakeCompleted: true,
-    });
-
-    // Get host from request headers
-    const mediaHost = ws._socket.server._connectionKey.split(":")[0];
-
-    const response = {
-        msg_type: "SIGNALING_HAND_SHAKE_RESP",
-        protocol_version: 1,
-        status_code: "STATUS_OK",
+    // Success response
+    sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_OK", null, {
         media_server: {
             server_urls: {
-                audio: `wss://testzoom.replit.app/audio`,
-                video: `wss://testzoom.replit.app/video`,
-                transcript: `wss://testzoom.replit.app/transcript`,
-                all: `wss://testzoom.replit.app/all`,
+                audio: `ws://0.0.0.0:8081/audio`,
+                video: `ws://0.0.0.0:8081/video`,
+                transcript: `ws://0.0.0.0:8081/transcript`,
+                all: `ws://0.0.0.0:8081/all`,
             },
             srtp_keys: {
                 audio: crypto.randomBytes(32).toString("hex"),
                 video: crypto.randomBytes(32).toString("hex"),
                 share: crypto.randomBytes(32).toString("hex"),
             },
-        },
+        }
+    });
+}
+
+function handleDataHandshake(ws, message, channel) {
+    if (!validateHandshakeMessage(message, ws, "DATA_HANDSHAKE_RESP")) {
+        return;
+    }
+
+    // Validate media parameters
+    if (!validateMediaParams(message.media_params)) {
+        sendWebSocketResponse(ws, "DATA_HANDSHAKE_RESP", "STATUS_INVALID_MEDIA_PARAMS", 
+            "Invalid media parameters");
+        return;
+    }
+
+    // Create or update session
+    const session = {
+        meeting_uuid: message.meeting_uuid,
+        rtms_stream_id: message.rtms_stream_id,
+        channel,
+        payload_encryption: message.payload_encryption || false,
+        media_params: message.media_params
     };
-    console.log(
-        "Sending handshake response with URLs:",
-        response.media_server.server_urls,
-    );
-    ws.send(JSON.stringify(response));
-}
+    clientSessions.set(ws, session);
 
-// Handle event subscription
-function handleEventSubscription(ws, message) {
-    console.log("Handling event subscription:", message.events);
-    // No response needed as per requirements
-}
+    // Success response
+    sendWebSocketResponse(ws, "DATA_HANDSHAKE_RESP", "STATUS_OK", null, {
+        sequence: generateSequence(),
+        payload_encrypted: session.payload_encryption
+    });
 
-// Handle session state request
-function handleSessionStateRequest(ws, message) {
-    const { session_id } = message;
-
-    // Mocked response for session state
-    ws.send(
-        JSON.stringify({
-            msg_type: "SESSION_STATE_RESP",
-            session_id: session_id,
-            session_state: "STARTED", // Mocked state
-        }),
-    );
+    startMediaStreams(ws, channel);
 }
 
 // Setup media WebSocket server
@@ -589,10 +542,16 @@ function setupMediaWebSocketServer(wss) {
         const path = req.url.replace("/", "");
         console.log(`Client connected to media channel: ${path}`);
 
+        // Store streams for this connection
+        ws.mediaStreams = {
+            audio: null,
+            video: null
+        };
+
         ws.on("message", async (data) => {
             try {
                 const message = JSON.parse(data);
-                console.log("Received message on media channel:", message);
+                console.log("Received message on media channel:", message.msg_type);
 
                 // Relay session state updates to signaling websocket
                 if (message.msg_type === "SESSION_STATE_UPDATE" && signalingWebsocket && signalingWebsocket.readyState === WebSocket.OPEN) {
@@ -625,19 +584,14 @@ function setupMediaWebSocketServer(wss) {
                     }
                 }
 
-                if (message.msg_type === "DATA_HAND_SHAKE_REQ") {
-                    console.log(
-                        "Processing DATA_HAND_SHAKE_REQ on media channel",
-                    );
-                    handleDataHandshake(ws, message, path);
-                } else if (message.msg_type === "MEDIA_DATA_VIDEO" || message.msg_type === "MEDIA_DATA_AUDIO" || message.msg_type === "MEDIA_DATA_TRANSCRIPT") {
+                // Handle media data messages
+                if (message.msg_type === "MEDIA_DATA_VIDEO" || 
+                    message.msg_type === "MEDIA_DATA_AUDIO" || 
+                    message.msg_type === "MEDIA_DATA_TRANSCRIPT") {
                     // Broadcast media data to all connected clients
                     mediaServer.clients.forEach((client) => {
                         if (client.readyState === WebSocket.OPEN) {
-                            // Access pathname from stored property
                             const clientPath = client.pathname ? client.pathname.replace('/', '') : 'all';
-
-                            // Send data based on socket path
                             if (clientPath === 'all' || 
                                 (clientPath === 'audio' && message.msg_type === 'MEDIA_DATA_AUDIO') ||
                                 (clientPath === 'video' && message.msg_type === 'MEDIA_DATA_VIDEO') ||
@@ -648,175 +602,28 @@ function setupMediaWebSocketServer(wss) {
                     });
                 }
             } catch (error) {
-                console.error(
-                    "Error processing message on media channel:",
-                    error,
-                );
+                console.error("Error processing message on media channel:", error);
             }
         });
 
         ws.on("close", () => {
             console.log("Media connection closed for channel:", path);
-            clearAllIntervals(ws);
+            // Clean up any resources
+            if (ws.mediaStreams) {
+                ws.mediaStreams.audio = null;
+                ws.mediaStreams.video = null;
+            }
+        });
+
+        ws.on("error", (error) => {
+            console.error("WebSocket error:", error);
+            // Clean up any resources
+            if (ws.mediaStreams) {
+                ws.mediaStreams.audio = null;
+                ws.mediaStreams.video = null;
+            }
         });
     });
-}
-
-// Data handshake handler
-function handleDataHandshake(ws, message, channel) {
-    // Add version check
-    if (message.protocol_version !== 1) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_INVALID_VERSION",
-                reason: "Unsupported protocol version",
-            }),
-        );
-        return;
-    }
-
-    const {
-        meeting_uuid,
-        rtms_stream_id,
-        payload_encryption,
-        media_params,
-        signature,
-    } = message;
-
-    // Validate required fields
-    if (!meeting_uuid || !rtms_stream_id || !signature) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_INVALID_MESSAGE",
-                reason: "Missing required fields",
-            }),
-        );
-        return;
-    }
-
-    // Load credentials from rtms_credentials.json directly
-    const data = JSON.parse(
-        fs.readFileSync(
-            path.join(__dirname, "data", "rtms_credentials.json"),
-            "utf8",
-        ),
-    );
-
-    // First find the matching credential that can validate the signature
-    const matchingCred = data.auth_credentials.find((cred) => {
-        try {
-            const testSignature = crypto
-                .createHmac("sha256", cred.client_secret)
-                .update(`${cred.client_id},${meeting_uuid},${rtms_stream_id}`)
-                .digest("hex");
-            return testSignature === signature;
-        } catch (err) {
-            return false;
-        }
-    });
-
-    if (!matchingCred) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_UNAUTHORIZED",
-                reason: "Invalid credentials",
-            }),
-        );
-        return;
-    }
-
-    // Validate signature using client_id + "," + meeting_uuid + "," + rtms_stream_id
-    const expectedSignature = crypto
-        .createHmac("sha256", matchingCred.client_secret)
-        .update(`${matchingCred.client_id},${meeting_uuid},${rtms_stream_id}`)
-        .digest("hex");
-
-    if (signature !== expectedSignature) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_UNAUTHORIZED",
-                reason: "Invalid signature",
-            }),
-        );
-        return;
-    }
-
-    // Find any session with matching credentials
-    let session;
-    clientSessions.forEach((value, key) => {
-        if (
-            value.meeting_uuid === meeting_uuid &&
-            value.rtms_stream_id === rtms_stream_id
-        ) {
-            session = value;
-        }
-    });
-
-    if (!session) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_UNAUTHORIZED",
-                reason: "No valid session found",
-            }),
-        );
-        return;
-    }
-
-    // Store session for this connection
-    clientSessions.set(ws, session);
-
-    // Validate credentials match session
-    if (
-        session.meeting_uuid !== meeting_uuid ||
-        session.rtms_stream_id !== rtms_stream_id
-    ) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_UNAUTHORIZED",
-                reason: "Credentials do not match session",
-            }),
-        );
-        return;
-    }
-
-    session.channel = channel;
-    session.payload_encryption = payload_encryption || false;
-
-    if (!validateMediaParams(media_params)) {
-        ws.send(
-            JSON.stringify({
-                msg_type: "DATA_HANDSHAKE_RESP",
-                protocol_version: 1,
-                status_code: "STATUS_INVALID_MEDIA_PARAMS",
-                reason: "Invalid media parameters",
-            }),
-        );
-        return;
-    }
-
-    ws.send(
-        JSON.stringify({
-            msg_type: "DATA_HANDSHAKE_RESP",
-            protocol_version: 1,
-            status_code: "STATUS_OK",
-            sequence: generateSequence(),
-            payload_encrypted: session.payload_encryption,
-        }),
-    );
-
-    startMediaStreams(ws, channel);
 }
 
 // Start media connection
@@ -1250,3 +1057,9 @@ const webhookServer = require("http").createServer(webhookApp);
 webhookServer.listen(WEBHOOK_PORT, "0.0.0.0", () => {
     console.log(`Webhook server running on 0.0.0.0:${WEBHOOK_PORT}`);
 });
+
+// Create Express app if you haven't already
+const app = express();
+
+// Serve static files from the 'public' directory
+app.use(express.static(path.join(__dirname, 'public')));

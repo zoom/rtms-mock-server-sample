@@ -2,9 +2,19 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const crypto = require("crypto");
+const cors = require('cors');
+const https = require('https');
+const fetch = require('node-fetch');
+const CONFIG = require(path.join(__dirname, 'public', 'js', 'config.js'));
 
 const router = express.Router();
+router.use(cors());
 router.use(express.json());
+
+// Create a custom HTTPS agent that ignores SSL certificate validation
+const httpsAgent = new https.Agent({
+    rejectUnauthorized: false
+});
 
 function loadCredentials() {
     const credentialsPath = path.join(
@@ -33,11 +43,13 @@ function loadCredentials() {
 
 // Add webhook validation endpoint
 router.post("/api/validate-webhook", async (req, res) => {
+    console.log("Received validation request for webhook URL:", req.body.webhookUrl);
     const { webhookUrl } = req.body;
     const credentials = loadCredentials();
     const plainToken = crypto.randomBytes(16).toString("base64");
 
     try {
+        console.log("Attempting to validate webhook at URL:", webhookUrl);
         const validationResponse = await fetch(webhookUrl, {
             method: "POST",
             headers: {
@@ -50,16 +62,22 @@ router.post("/api/validate-webhook", async (req, res) => {
                 },
                 event_ts: Date.now(),
             }),
+            agent: httpsAgent,
+            timeout: 5000
         });
 
+        console.log("Validation response status:", validationResponse.status);
+
         if (!validationResponse.ok) {
+            console.log("Validation failed with status:", validationResponse.status);
             return res.json({
                 success: false,
-                error: "Webhook endpoint returned error",
+                error: `Webhook endpoint returned error ${validationResponse.status}`,
             });
         }
 
         const data = await validationResponse.json();
+        console.log("Validation response data:", data);
 
         // Verify the response
         const expectedHash = crypto
@@ -67,16 +85,20 @@ router.post("/api/validate-webhook", async (req, res) => {
             .update(plainToken)
             .digest("hex");
 
-        if (
-            data.plainToken === plainToken &&
-            data.encryptedToken === expectedHash
-        ) {
+        if (data.plainToken === plainToken && data.encryptedToken === expectedHash) {
+            console.log("Validation successful");
             res.json({ success: true });
         } else {
+            console.log("Invalid validation response");
             res.json({ success: false, error: "Invalid validation response" });
         }
     } catch (error) {
-        res.json({ success: false, error: error.message });
+        console.error("Validation error:", error);
+        res.json({ 
+            success: false, 
+            error: error.message,
+            details: error.cause ? error.cause.message : 'No additional details'
+        });
     }
 });
 
@@ -106,7 +128,7 @@ router.post("/api/send-webhook", async (req, res) => {
                 object: {
                     meeting_uuid: meetingInfo.meeting_uuid,
                     rtms_stream_id: meetingInfo.rtms_stream_id,
-                    server_urls: "wss://testzoom.replit.app",
+                    server_urls: "ws://0.0.0.0:9092",
                 },
             },
         },
@@ -119,6 +141,8 @@ router.post("/api/send-webhook", async (req, res) => {
                 "Content-Type": "application/json",
             },
             body: JSON.stringify(payload),
+            agent: httpsAgent,
+            timeout: 5000
         });
 
         let responseData;
@@ -139,6 +163,7 @@ router.post("/api/send-webhook", async (req, res) => {
         res.status(500).json({
             success: false,
             error: error.message,
+            details: error.cause ? error.cause.message : 'No additional details',
             attempted_payload: payload,
         });
     }

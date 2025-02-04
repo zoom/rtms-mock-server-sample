@@ -1,0 +1,52 @@
+body {
+    font-family: Arial, sans-serif;
+    max-width: 600px;
+    margin: 20px auto;
+    padding: 20px;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+input[type="text"] {
+    width: 100%;
+    padding: 8px;
+    margin-top: 5px;
+}
+
+.button-group {
+    margin-bottom: 20px;
+}
+
+button {
+    background-color: #0066cc;
+    color: white;
+    padding: 10px 20px;
+    border: none;
+    cursor: pointer;
+    margin-right: 10px;
+}
+
+button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+    background-color: #0052a3;
+}
+
+#mediaContainer {
+    margin-top: 20px;
+}
+
+#mediaVideo {
+    width: 320px;
+    height: 240px;
+    background: #333;
+}
+
+#response {
+    margin-top: 20px;
+} 
