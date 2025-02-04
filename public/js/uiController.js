@@ -13,23 +13,11 @@ class UIController {
     }
 
     static updateButtonStates(isActive) {
-        console.log("Updating button states:", isActive);
-        const buttons = {
-            'pauseBtn': !isActive,
-            'resumeBtn': true,
-            'stopBtn': !isActive,
-            'endBtn': !isActive,
-            'sendBtn': isActive
-        };
-
-        Object.entries(buttons).forEach(([id, disabled]) => {
-            const button = document.getElementById(id);
-            if (button) {
-                button.disabled = disabled;
-            } else {
-                console.warn(`Button ${id} not found`);
-            }
-        });
+        document.getElementById('pauseBtn').disabled = !isActive;
+        document.getElementById('resumeBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = !isActive;
+        document.getElementById('endBtn').disabled = !isActive;
+        document.getElementById('sendBtn').disabled = isActive;
     }
 
     static handlePause() {
@@ -138,11 +126,7 @@ class UIController {
     }
 
     static showError(message) {
-        console.error("UI Error:", message);
-        const responseElement = document.getElementById('response');
-        if (responseElement) {
-            responseElement.innerHTML = `<div style="color: red;">${message}</div>`;
-        }
+        document.getElementById('response').innerHTML = message;
     }
 }
 

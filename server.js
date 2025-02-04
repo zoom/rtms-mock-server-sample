@@ -3,7 +3,6 @@ const express = require("express");
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
-const CONFIG = require('./public/js/config.js');
 
 function calculateSignature(clientId, meetingUuid, rtmsStreamId, clientSecret) {
     const message = `${clientId},${meetingUuid},${rtmsStreamId}`;
@@ -16,9 +15,9 @@ const { exec } = require("child_process");
 const webhookRouter = require("./webhookHandler"); // Added webhook router
 
 // Port configuration
-const HANDSHAKE_PORT = CONFIG.PORTS.HANDSHAKE;
-const MEDIA_STREAM_PORT = CONFIG.PORTS.MEDIA;
-const WEBHOOK_PORT = CONFIG.PORTS.WEBHOOK; // Added webhook port
+const HANDSHAKE_PORT = 9092;
+const MEDIA_STREAM_PORT = 8081;
+const WEBHOOK_PORT = 3000; // Added webhook port
 
 // Logging function
 function logWebSocketMessage(direction, type, message, path = "") {

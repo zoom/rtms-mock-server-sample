@@ -5,7 +5,6 @@ const crypto = require("crypto");
 const cors = require('cors');
 const https = require('https');
 const fetch = require('node-fetch');
-const CONFIG = require(path.join(__dirname, 'public', 'js', 'config.js'));
 
 const router = express.Router();
 router.use(cors());

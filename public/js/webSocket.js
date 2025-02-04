@@ -1,48 +1,47 @@
 class WebSocketHandler {
     static async setupWebSocket(serverUrl) {
-        const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsHost = CONFIG.HOST === '0.0.0.0' ? window.location.hostname : CONFIG.HOST;
-        const wsUrl = `${wsProtocol}//${wsHost}:${CONFIG.PORTS.MEDIA}/all`;
-        
-        console.log('Connecting to WebSocket URL:', wsUrl);
-        RTMSState.mediaSocket = new WebSocket(wsUrl);
+        let wsUrl = serverUrl;
+        if (wsUrl.includes('replit.app')) {
+            wsUrl = `ws://${CONFIG.WS_ENDPOINTS.DEFAULT_HOST}:${CONFIG.WS_ENDPOINTS.DEFAULT_PORT}`;
+        }
+
+        RTMSState.mediaSocket = new WebSocket(`${wsUrl}/all`);
         this.setupWebSocketHandlers();
     }
 
     static setupWebSocketHandlers() {
-        if (!RTMSState.mediaSocket) {
-            console.error('Media socket not initialized');
-            return;
+        RTMSState.mediaSocket.onopen = this.handleOpen;
+        RTMSState.mediaSocket.onmessage = this.handleMessage;
+        RTMSState.mediaSocket.onclose = this.handleClose;
+        RTMSState.mediaSocket.onerror = this.handleError;
+    }
+
+    static handleOpen = () => {
+        console.log('Connected to media server');
+        RTMSState.sessionState = CONFIG.STATES.STARTED;
+        MediaHandler.startRecording();
+    }
+
+    static handleMessage = (event) => {
+        try {
+            const message = JSON.parse(event.data);
+            console.log("Received message type:", message.msg_type);
+            UIController.handleIncomingMedia(message);
+        } catch (error) {
+            console.error("Error processing message:", error);
         }
+    }
 
-        RTMSState.mediaSocket.onopen = () => {
-            console.log('Connected to media server');
-            RTMSState.sessionState = CONFIG.STATES.STARTED;
-            MediaHandler.startRecording();
-            UIController.updateButtonStates(true);
-        };
+    static handleClose = () => {
+        console.log('Media connection closed');
+        MediaHandler.stopRecording();
+        UIController.handleStop();
+    }
 
-        RTMSState.mediaSocket.onmessage = (event) => {
-            try {
-                const message = JSON.parse(event.data);
-                console.log("Received message:", message);
-                UIController.handleIncomingMedia(message);
-            } catch (error) {
-                console.error("Error processing message:", error);
-            }
-        };
-
-        RTMSState.mediaSocket.onclose = () => {
-            console.log('Media connection closed');
-            MediaHandler.stopRecording();
-            UIController.handleStop();
-        };
-
-        RTMSState.mediaSocket.onerror = (error) => {
-            console.error('WebSocket error:', error);
-            MediaHandler.stopRecording();
-            UIController.handleStop();
-        };
+    static handleError = (error) => {
+        console.error('WebSocket error:', error);
+        MediaHandler.stopRecording();
+        UIController.handleStop();
     }
 
     static handleVideoData = async (event) => {
