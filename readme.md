@@ -5,6 +5,218 @@ A comprehensive mock Real-Time Media Streaming (RTMS) server that simulates WebS
 
 Repository: https://github.com/ojusave/mockRTMSserver
 
+## Setup and Testing
+
+### Prerequisites
+- Node.js (v14+)
+- FFmpeg
+- npm
+- Modern web browser with WebRTC support
+
+### Installation
+```bash
+# Clone repository
+git clone https://github.com/ojusave/mockRTMSserver
+cd mockRTMSserver
+
+# Install dependencies
+npm install
+
+# Create data directory for credentials and media files
+mkdir data
+
+# Configure credentials
+cp config/credentials.example.json data/rtms_credentials.json
+```
+
+### Testing Flow
+
+#### 1. Initial Setup
+1. Start the server:
+   ```bash
+   npm start
+   ```
+2. Open `http://localhost:9092` in your browser
+3. You should see the testing dashboard with:
+   - Webhook URL input field
+   - "Validate Webhook" button
+   - "Send Webhook" button
+   - Media preview area
+   - Stream control buttons
+
+#### 2. Webhook Validation
+1. Enter your webhook URL in the input field
+2. Click "Validate Webhook" button
+3. The server will send a validation request to your webhook endpoint:
+   ```json
+   {
+     "event": "endpoint.url_validation",
+     "payload": {
+       "plainToken": "randomToken"
+     },
+     "event_ts": 1234567890
+   }
+   ```
+4. Your webhook receiver should:
+   - Extract the plainToken
+   - Create HMAC-SHA256 hash using your webhook token
+   - Return response:
+     ```json
+     {
+       "plainToken": "same_random_token",
+       "encryptedToken": "hmac_hash_of_token"
+     }
+     ```
+5. Wait for validation success message
+
+#### 3. Start Streaming Session
+1. After successful validation, click "Send Webhook"
+2. The server will send a webhook with streaming URLs:
+   ```json
+   {
+     "event": "meeting.rtms.started",
+     "payload": {
+       "operator_id": "user_id",
+       "object": {
+         "meeting_uuid": "meeting_id",
+         "rtms_stream_id": "stream_id",
+         "server_urls": ["ws://localhost:9092/signaling"]
+       }
+     }
+   }
+   ```
+3. Your client should:
+   - Generate HMAC signature:
+     ```javascript
+     const message = `${client_id}${meeting_uuid}${rtms_stream_id}`;
+     const signature = crypto
+       .createHmac('sha256', client_secret)
+       .update(message)
+       .digest('hex');
+     ```
+   - Send handshake request to the signaling server:
+     ```json
+     {
+       "msg_type": "SIGNALING_HAND_SHAKE_REQ",
+       "protocol_version": 1,
+       "meeting_uuid": "meeting_uuid",
+       "rtms_stream_id": "stream_id",
+       "signature": "generated_signature"
+     }
+     ```
+   - Receive media server URLs in response:
+     ```json
+     {
+       "msg_type": "SIGNALING_HAND_SHAKE_RESP",
+       "status_code": "STATUS_OK",
+       "media_server": {
+         "server_urls": {
+           "audio": "ws://localhost:8081/audio",
+           "video": "ws://localhost:8081/video",
+           "transcript": "ws://localhost:8081/transcript",
+           "all": "ws://localhost:8081/all"
+         }
+       }
+     }
+     ```
+
+#### 4. Media Socket Connections
+1. Based on your streaming needs, connect to one or more media sockets:
+   - `/audio`: For audio-only streaming
+   - `/video`: For video-only streaming
+   - `/transcript`: For real-time transcription
+   - `/all`: For all media types
+
+2. Each socket serves a specific purpose:
+   - Audio Socket:
+     - Receives PCM audio data (16KHz, mono)
+     - Handles audio state updates
+     - Reports audio statistics
+
+   - Video Socket:
+     - Receives H.264/JPEG video frames
+     - Manages video quality settings
+     - Reports video statistics
+
+   - Transcript Socket:
+     - Receives real-time transcription data
+     - Handles language settings
+     - Reports transcription status
+
+   - All-in-One Socket:
+     - Handles all media types
+     - Requires message type identification
+     - Suitable for simplified implementations
+
+#### 5. Media Streaming
+1. When prompted, allow camera/microphone access
+2. The client will:
+   - Connect to media WebSocket endpoints
+   - Start sending audio/video/transcript data
+   - Format data according to specifications:
+     ```json
+     {
+       "msg_type": "MEDIA_DATA_VIDEO",
+       "content": {
+         "user_id": 123,
+         "data": "base64_encoded_video_frame",
+         "timestamp": 1234567890
+       }
+     }
+     ```
+3. Use stream controls:
+   - Pause/Resume: Temporarily stop/restart streaming
+   - Stop: End the streaming session
+   - Mute: Toggle audio streaming
+   - Video Off: Toggle video streaming
+   - Each control action sends appropriate state updates:
+     ```json
+     {
+       "msg_type": "SESSION_STATE_UPDATE",
+       "state": "PAUSED",
+       "timestamp": 1234567890
+     }
+     ```
+
+#### 6. Monitoring
+1. Browser Console (F12):
+   - WebSocket connection status
+   - Message events
+   - Media stream status
+2. Server Logs:
+   - Connection events
+   - Data flow status
+   - Error messages
+3. Preview Window:
+   - Local video preview
+   - Audio level indicators
+   - Connection status indicators
+
+#### 7. Cleanup
+1. Click "Stop" to end streaming
+2. Server will:
+   - Send termination events
+   - Close WebSocket connections
+   - Clean up resources
+3. Verify all connections are closed in browser console
+
+### Common Issues and Solutions
+
+1. **WebSocket Connection Fails**
+   - Verify server is running on correct ports
+   - Check credentials in rtms_credentials.json
+   - Ensure proper CORS configuration
+
+2. **Media Stream Issues**
+   - Verify camera/microphone permissions
+   - Check supported media formats
+   - Monitor browser console for errors
+
+3. **Webhook Testing Fails**
+   - Verify webhook URL is accessible
+   - Check webhook token configuration
+   - Ensure proper request format
+
 ## System Architecture
 
 ### Backend Components
@@ -57,31 +269,6 @@ mockRTMSserver/
 ```
 
 ## Data Formats and Protocols
-
-### 1. Credential Format
-```json
-{
-  "auth_credentials": [
-    {
-      "client_id": "your_client_id",
-      "client_secret": "your_client_secret",
-      "userID": "your_user_id",
-      "accountId": "your_account_id"
-    }
-  ],
-  "stream_meeting_info": [
-    {
-      "meeting_uuid": "meeting_uuid",
-      "rtms_stream_id": "stream_id"
-    }
-  ],
-  "Zoom_Webhook_Secret_Token": [
-    {
-      "token": "your_webhook_token"
-    }
-  ]
-}
-```
 
 ### 2. WebSocket Message Formats
 
@@ -177,70 +364,6 @@ class WebSocketHandler {
     static sendSessionStateUpdate(state, reason)
 }
 ```
-
-## Setup and Usage
-
-### Prerequisites
-- Node.js (v14+)
-- FFmpeg
-- npm
-- Modern web browser with WebRTC support
-
-### Installation
-```bash
-# Clone repository
-git clone https://github.com/ojusave/mockRTMSserver
-cd mockRTMSserver
-
-# Install dependencies
-npm install
-
-# Create required directories
-mkdir -p data uploads
-
-# Configure credentials
-cp config/credentials.example.json data/rtms_credentials.json
-```
-
-### Testing Flow
-
-1. **Access Dashboard**
-   - Open `http://localhost:9092` in your browser
-   - Enter webhook URL in the testing interface
-
-2. **Validate Webhook**
-   ```bash
-   curl -X POST http://localhost:9092/api/validate-webhook \
-     -H "Content-Type: application/json" \
-     -d '{"webhookUrl": "your_webhook_url"}'
-   ```
-
-3. **Start Media Stream**
-   - Click "Send Webhook" to initiate session
-   - Allow camera/microphone access when prompted
-   - Use the control panel to manage the stream
-
-4. **Monitor Data Flow**
-   - Check browser console for WebSocket messages
-   - Monitor server logs for connection status
-   - Verify media transmission in preview window
-
-### Common Issues and Solutions
-
-1. **WebSocket Connection Fails**
-   - Verify server is running on correct ports
-   - Check credentials in rtms_credentials.json
-   - Ensure proper CORS configuration
-
-2. **Media Stream Issues**
-   - Verify camera/microphone permissions
-   - Check supported media formats
-   - Monitor browser console for errors
-
-3. **Webhook Testing Fails**
-   - Verify webhook URL is accessible
-   - Check webhook token configuration
-   - Ensure proper request format
 
 ## Contributing
 
