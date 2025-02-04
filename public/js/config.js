@@ -28,5 +28,6 @@ window.RTMSState = {
     sessionState: CONFIG.STATES.STOPPED,
     isStreamingEnabled: true,
     videoRecorder: null,
-    audioRecorder: null
+    audioRecorder: null,
+    recognition: null
 }; 

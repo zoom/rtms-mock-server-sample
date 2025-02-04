@@ -1,56 +1,100 @@
+const WebSocket = require("ws");
+const WebSocketUtils = require('../utils/wsUtils');
+const CONFIG = require('../config/serverConfig');
+
 class MediaHandler {
-    static handleMediaMessage(message, mediaServer, signalingWebsocket) {
-        if (message.msg_type === "SESSION_STATE_UPDATE") {
-            this.handleSessionStateUpdate(message, mediaServer, signalingWebsocket);
-        } else if (this.isMediaDataMessage(message)) {
-            this.broadcastMediaData(message, mediaServer);
+    static setupMediaServer(httpServer) {
+        const mediaServer = new WebSocket.Server({
+            server: httpServer,
+            host: CONFIG.HOST
+        });
+
+        this.setupMediaWebSocketHandlers(mediaServer);
+        return mediaServer;
+    }
+
+    static setupMediaWebSocketHandlers(mediaServer) {
+        mediaServer.on("connection", (ws, req) => {
+            console.log("Media server connection established");
+            ws.rtmsSessionId = WebSocketUtils.generateSequence();
+            ws.pathname = req.url;
+            
+            console.log(`Client connected to media channel: ${req.url}`);
+
+            // Store streams for this connection
+            ws.mediaStreams = {
+                audio: null,
+                video: null
+            };
+
+            // Use arrow function to preserve 'this' context
+            ws.on("message", (data) => this.handleMediaMessage(data, ws));
+            ws.on("close", () => this.handleMediaClose(ws));
+            ws.on("error", (error) => this.handleMediaError(ws, error));
+        });
+    }
+
+    static handleMediaMessage(data, ws) {
+        try {
+            const message = JSON.parse(data);
+            console.log("Received message on media channel:", message.msg_type);
+
+            if (message.msg_type === "SESSION_STATE_UPDATE" && 
+                global.signalingWebsocket?.readyState === WebSocket.OPEN) {
+                this.handleSessionStateUpdate(message);
+            }
+
+            if (MediaHandler.isMediaDataMessage(message)) {
+                this.broadcastMediaData(message);
+            }
+        } catch (error) {
+            console.error("Error processing message on media channel:", error);
         }
     }
 
     static isMediaDataMessage(message) {
-        return ["MEDIA_DATA_VIDEO", "MEDIA_DATA_AUDIO", "MEDIA_DATA_TRANSCRIPT"].includes(message.msg_type);
+        return ["MEDIA_DATA_VIDEO", "MEDIA_DATA_AUDIO", "MEDIA_DATA_TRANSCRIPT"]
+            .includes(message.msg_type);
     }
 
-    static handleSessionStateUpdate(message, mediaServer, signalingWebsocket) {
-        if (signalingWebsocket?.readyState === WebSocket.OPEN) {
-            this.relaySessionState(message, signalingWebsocket);
-        }
-
-        if (message.state === "STOPPED") {
-            this.handleSessionStop(mediaServer, signalingWebsocket);
-        }
-    }
-
-    static relaySessionState(message, signalingWebsocket) {
-        signalingWebsocket.send(JSON.stringify({
+    static handleSessionStateUpdate(message) {
+        global.signalingWebsocket.send(JSON.stringify({
             msg_type: "SESSION_STATE_UPDATE",
             session_id: message.rmts_session_id,
             state: message.state,
             stop_reason: message.stop_reason,
-            timestamp: message.timestamp || Date.now()
+            timestamp: Date.now()
         }));
-    }
 
-    static handleSessionStop(mediaServer, signalingWebsocket) {
-        mediaServer.clients.forEach(client => {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({
-                    msg_type: "STREAM_STATE_UPDATE",
-                    state: "TERMINATED",
-                    reason: "STOP_BC_MEETING_ENDED",
-                    timestamp: Date.now()
-                }));
-                client.close();
-            }
-        });
-
-        if (signalingWebsocket?.readyState === WebSocket.OPEN) {
-            signalingWebsocket.close();
+        if (message.state === "STOPPED") {
+            this.handleSessionStop();
         }
     }
 
-    static broadcastMediaData(message, mediaServer) {
-        mediaServer.clients.forEach(client => {
+    static handleSessionStop() {
+        if (global.mediaServer) {
+            global.mediaServer.clients.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(JSON.stringify({
+                        msg_type: "STREAM_STATE_UPDATE",
+                        state: "TERMINATED",
+                        reason: "STOP_BC_MEETING_ENDED",
+                        timestamp: Date.now()
+                    }));
+                    client.close();
+                }
+            });
+        }
+
+        if (global.signalingWebsocket?.readyState === WebSocket.OPEN) {
+            global.signalingWebsocket.close();
+        }
+    }
+
+    static broadcastMediaData(message) {
+        if (!global.mediaServer) return;
+
+        global.mediaServer.clients.forEach(client => {
             if (client.readyState === WebSocket.OPEN) {
                 const clientPath = client.pathname?.replace('/', '') || 'all';
                 if (this.shouldSendToClient(clientPath, message.msg_type)) {
@@ -65,6 +109,46 @@ class MediaHandler {
             (clientPath === 'audio' && messageType === 'MEDIA_DATA_AUDIO') ||
             (clientPath === 'video' && messageType === 'MEDIA_DATA_VIDEO') ||
             (clientPath === 'transcript' && messageType === 'MEDIA_DATA_TRANSCRIPT');
+    }
+
+    static handleMediaClose(ws) {
+        console.log("Media connection closed");
+        if (ws.mediaStreams) {
+            ws.mediaStreams.audio = null;
+            ws.mediaStreams.video = null;
+        }
+    }
+
+    static handleMediaError(ws, error) {
+        console.error("Media WebSocket error:", error);
+        if (ws.mediaStreams) {
+            ws.mediaStreams.audio = null;
+            ws.mediaStreams.video = null;
+        }
+    }
+
+    static closeMediaServer() {
+        if (global.mediaServer) {
+            global.mediaServer.clients.forEach(client => {
+                try {
+                    client.send(JSON.stringify({
+                        msg_type: "STREAM_STATE_UPDATE",
+                        rtms_stream_id: client.rtmsStreamId,
+                        state: "TERMINATED",
+                        reason: "STOP_BC_CONNECTION_INTERRUPTED",
+                        timestamp: Date.now()
+                    }));
+                    client.close();
+                } catch (error) {
+                    console.error("Error closing media client:", error);
+                }
+            });
+
+            global.mediaServer.close(() => {
+                console.log("Media server closed");
+                global.mediaServer = null;
+            });
+        }
     }
 }
 

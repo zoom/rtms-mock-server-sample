@@ -5,8 +5,11 @@ const crypto = require("crypto");
 const cors = require('cors');
 const https = require('https');
 const fetch = require('node-fetch');
+const CredentialsManager = require('../utils/credentialsManager');
 
 const router = express.Router();
+
+// Add middleware
 router.use(cors());
 router.use(express.json());
 
@@ -15,36 +18,11 @@ const httpsAgent = new https.Agent({
     rejectUnauthorized: false
 });
 
-function loadCredentials() {
-    const credentialsPath = path.join(
-        __dirname,
-        "data",
-        "rtms_credentials.json",
-    );
-    try {
-        const data = JSON.parse(fs.readFileSync(credentialsPath, "utf8"));
-        // Get token from Zoom_Webhook_Secret_Token array
-        const webhookToken = data.Zoom_Webhook_Secret_Token[0].token;
-        return {
-            auth_credentials: data.auth_credentials,
-            stream_meeting_info: data.stream_meeting_info,
-            webhookToken,
-        };
-    } catch (error) {
-        console.error("Error loading credentials:", error);
-        return {
-            auth_credentials: [],
-            stream_meeting_info: [],
-            webhookToken: "",
-        };
-    }
-}
-
 // Add webhook validation endpoint
-router.post("/api/validate-webhook", async (req, res) => {
+router.post("/validate-webhook", async (req, res) => {
     console.log("Received validation request for webhook URL:", req.body.webhookUrl);
     const { webhookUrl } = req.body;
-    const credentials = loadCredentials();
+    const credentials = CredentialsManager.loadCredentials();
     const plainToken = crypto.randomBytes(16).toString("base64");
 
     try {
@@ -101,13 +79,9 @@ router.post("/api/validate-webhook", async (req, res) => {
     }
 });
 
-function getRandomEntry(array) {
-    return array[Math.floor(Math.random() * array.length)];
-}
-
-router.post("/api/send-webhook", async (req, res) => {
+router.post("/send-webhook", async (req, res) => {
     const { webhookUrl } = req.body;
-    const credentials = loadCredentials();
+    const credentials = CredentialsManager.loadCredentials();
 
     // Get random credential and meeting info
     const credential = getRandomEntry(credentials.auth_credentials);
@@ -167,5 +141,9 @@ router.post("/api/send-webhook", async (req, res) => {
         });
     }
 });
+
+function getRandomEntry(array) {
+    return array[Math.floor(Math.random() * array.length)];
+}
 
 module.exports = router;

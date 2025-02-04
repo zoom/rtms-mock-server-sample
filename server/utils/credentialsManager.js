@@ -5,12 +5,18 @@ const crypto = require('crypto');
 class CredentialsManager {
     static loadCredentials() {
         try {
-            return JSON.parse(
+            const data = JSON.parse(
                 fs.readFileSync(
                     path.join(__dirname, "../../data", "rtms_credentials.json"),
                     "utf8"
                 )
             );
+            const webhookToken = data.Zoom_Webhook_Secret_Token?.[0]?.token || "";
+            return {
+                auth_credentials: data.auth_credentials || [],
+                stream_meeting_info: data.stream_meeting_info || [],
+                webhookToken,
+            };
         } catch (error) {
             console.error("Error loading credentials:", error);
             return {

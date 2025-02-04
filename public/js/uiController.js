@@ -29,6 +29,9 @@ class UIController {
             RTMSState.isStreamingEnabled = false;
 
             MediaHandler.toggleMediaTracks(false);
+            if (RTMSState.recognition) {
+                RTMSState.recognition.stop();
+            }
             WebSocketHandler.sendSessionStateUpdate(CONFIG.STATES.PAUSED, "ACTION_BY_USER");
             
             document.getElementById('resumeBtn').disabled = false;
@@ -51,6 +54,9 @@ class UIController {
             RTMSState.isStreamingEnabled = true;
 
             MediaHandler.toggleMediaTracks(true);
+            if (RTMSState.recognition) {
+                RTMSState.recognition.start();
+            }
             WebSocketHandler.sendSessionStateUpdate(CONFIG.STATES.RESUMED, "ACTION_BY_USER");
             
             document.getElementById('pauseBtn').disabled = false;

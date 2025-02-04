@@ -9,6 +9,7 @@ class MediaHandler {
 
             await this.setupVideoDisplay();
             await this.setupMediaRecorders();
+            await this.setupSpeechRecognition();
             await WebSocketHandler.setupWebSocket(serverUrl);
 
         } catch (error) {
@@ -68,9 +69,49 @@ class MediaHandler {
         }
     }
 
+    static async setupSpeechRecognition() {
+        if ('webkitSpeechRecognition' in window) {
+            RTMSState.recognition = new webkitSpeechRecognition();
+            RTMSState.recognition.continuous = true;
+            RTMSState.recognition.interimResults = true;
+            RTMSState.recognition.lang = 'en-US';
+
+            RTMSState.recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        transcript += event.results[i][0].transcript;
+                    }
+                }
+                
+                // Update UI
+                document.getElementById('transcript').innerText = transcript;
+
+                // Send transcript through WebSocket
+                if (RTMSState.mediaSocket?.readyState === WebSocket.OPEN) {
+                    RTMSState.mediaSocket.send(JSON.stringify({
+                        msg_type: "MEDIA_DATA_TRANSCRIPT",
+                        content: {
+                            user_id: 0,
+                            data: transcript,
+                            timestamp: Date.now()
+                        }
+                    }));
+                }
+            };
+
+            RTMSState.recognition.start();
+        } else {
+            console.warn('Speech Recognition API not supported in this browser');
+        }
+    }
+
     static cleanup() {
         if (RTMSState.mediaStream) {
             RTMSState.mediaStream.getTracks().forEach(track => track.stop());
+        }
+        if (RTMSState.recognition) {
+            RTMSState.recognition.stop();
         }
         document.getElementById('mediaVideo').srcObject = null;
     }
