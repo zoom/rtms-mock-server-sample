@@ -1,7 +1,7 @@
 # RTMS Mock Server
 
 ## Overview
-A comprehensive mock Real-Time Media Streaming (RTMS) server that simulates WebSocket-based media streaming functionality. This server provides a complete development and testing environment for client-server interactions, including media streaming, signaling, and webhook management.
+This repo contains a mock Real-Time Media Streaming (RTMS) server that simulates WebSocket-based media streaming functionality. This server provides a complete development and testing environment for client-server interactions, including media streaming, signaling, and webhook management.
 
 Repository: https://github.com/ojusave/mockRTMSserver
 
