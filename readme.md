@@ -5,6 +5,16 @@ A comprehensive mock Real-Time Media Streaming (RTMS) server that simulates WebS
 
 Repository: https://github.com/ojusave/mockRTMSserver
 
+## Test Client
+A companion test client is available to help you test this mock server. The client implements all the necessary protocols and provides a user interface for testing different streaming scenarios.
+
+- **Repository:** [RTMS Test Client](https://github.com/ojusave/rtmsTestClient)
+- **Features:**
+  - Webhook endpoint implementation
+  - WebSocket connection handling
+  - Media streaming controls
+  - Incoming real time data logs
+
 ## Setup and Testing
 
 ### Prerequisites
