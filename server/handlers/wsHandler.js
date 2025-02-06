@@ -14,6 +14,27 @@ class WSHandler {
         wss.on("error", this.handleError);
         wss.on("close", this.handleClose);
 
+        // Setup periodic connection check
+        setInterval(() => {
+            wss.clients.forEach(ws => {
+                if (ws.missedKeepAlives >= 3) {
+                    console.log('Client missed too many keep-alives, terminating connection');
+                    ws.terminate();
+                    return;
+                }
+
+                if (!ws.isAlive) {
+                    ws.missedKeepAlives = (ws.missedKeepAlives || 0) + 1;
+                }
+
+                ws.isAlive = false;
+                ws.send(JSON.stringify({
+                    msg_type: "KEEP_ALIVE_REQ",
+                    timestamp: Date.now()
+                }));
+            });
+        }, 5000);
+
         return wss;
     }
 
@@ -22,15 +43,18 @@ class WSHandler {
         console.log("Upgrade request received for:", request.url);
 
         if (request.url === "/signaling") {
+            console.log("Handling signaling upgrade");
             global.wss.handleUpgrade(request, socket, head, (ws) => {
                 global.wss.emit("connection", ws, request);
             });
         } else if (this.isMediaPath(request.url)) {
+            console.log("Handling media upgrade for:", request.url);
             if (global.mediaServer) {
                 global.mediaServer.handleUpgrade(request, socket, head, (ws) => {
                     global.mediaServer.emit("connection", ws, request);
                 });
             } else {
+                console.log("No media server available");
                 socket.destroy();
             }
         } else if (request.url === "/" || request.url === "") {
@@ -54,9 +78,18 @@ class WSHandler {
         console.log("New handshake connection established");
         global.signalingWebsocket = ws;
 
+        // Initialize connection state
+        ws.isAlive = true;
+        ws.missedKeepAlives = 0;
+        ws.lastKeepAliveResponse = Date.now();
+
         ws.on("close", () => SignalingHandler.handleClose());
         ws.on("error", () => SignalingHandler.handleError());
         ws.on("message", (data) => SignalingHandler.handleMessage(ws, data));
+        ws.on("pong", () => {
+            ws.isAlive = true;
+            ws.missedKeepAlives = 0;
+        });
     }
 
     static handleError(error) {

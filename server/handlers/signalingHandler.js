@@ -7,18 +7,30 @@ class SignalingHandler {
     static handleMessage(ws, data) {
         try {
             const message = JSON.parse(data);
-            WebSocketUtils.logWebSocketMessage("RECEIVED", message.msg_type, message, "signaling");
-
-            if (message.msg_type === "SIGNALING_HAND_SHAKE_REQ") {
-                this.handleSignalingHandshake(ws, message);
+            
+            switch (message.msg_type) {
+                case "SIGNALING_HAND_SHAKE_REQ":
+                    this.handleHandshake(ws, message);
+                    break;
+                case "EVENT_SUBSCRIPTION":
+                    this.handleEventSubscription(ws, message);
+                    break;
+                case "SESSION_STATE_UPDATE":
+                    this.handleSessionStateUpdate(ws, message);
+                    break;
+                case "KEEP_ALIVE_RESP":
+                    this.handleKeepAliveResponse(ws, message);
+                    break;
+                default:
+                    console.log("Unknown signaling message type:", message.msg_type);
             }
         } catch (error) {
-            console.error("Error processing message:", error);
+            console.error("Error processing signaling message:", error);
         }
     }
 
-    static handleSignalingHandshake(ws, message) {
-        if (!this.validateHandshakeMessage(message, ws)) {
+    static handleHandshake(ws, message) {
+        if (!this.validateHandshakeMessage(ws, message)) {
             return;
         }
 
@@ -36,7 +48,7 @@ class SignalingHandler {
         });
     }
 
-    static validateHandshakeMessage(message, ws) {
+    static validateHandshakeMessage(ws, message) {
         // Check protocol version
         if (message.protocol_version !== 1) {
             WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_INVALID_VERSION", "Unsupported protocol version");
@@ -86,6 +98,19 @@ class SignalingHandler {
 
         // Store the validated credentials
         ws.validatedCredentials = matchingCred;
+
+        // Add HMAC-SHA256 verification
+        const clientSecret = matchingCred.client_secret;
+        const clientId = matchingCred.client_id;
+        const calculatedSignature = crypto.createHmac('sha256', clientSecret)
+            .update(`${clientId},${meeting_uuid},${rtms_stream_id}`)
+            .digest('hex');
+        
+        if (calculatedSignature !== signature) {
+            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_INVALID_SIGNATURE");
+            return false;
+        }
+
         return true;
     }
 
@@ -113,6 +138,36 @@ class SignalingHandler {
             global.mediaServer = null;
         }
         global.signalingWebsocket = null;
+    }
+
+    static handleEventSubscription(ws, message) {
+        const { events } = message;
+        ws.subscribedEvents = new Set();
+        events.forEach(event => {
+            if (event.subscribe) {
+                ws.subscribedEvents.add(event.event_type);
+            }
+        });
+        console.log(`Updated event subscriptions: ${Array.from(ws.subscribedEvents)}`);
+    }
+
+    static handleSessionStateUpdate(ws, message) {
+        const { state, rtms_session_id } = message;
+        ws.sessionState = state;
+        this.broadcastSessionState(rtms_session_id, state);
+    }
+
+    static broadcastSessionState(sessionId, state) {
+        if (!global.signalingWebsocket) return;
+
+        const stateMessage = {
+            msg_type: "SESSION_STATE_UPDATE",
+            rtms_session_id: sessionId,
+            state: state,
+            timestamp: Date.now()
+        };
+
+        global.signalingWebsocket.send(JSON.stringify(stateMessage));
     }
 }
 

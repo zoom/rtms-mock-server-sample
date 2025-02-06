@@ -1,5 +1,6 @@
 const { exec } = require("child_process");
 const fs = require("fs");
+const crypto = require("crypto");
 
 class MediaUtils {
     static convertToPCM(inputFile, outputFile, callback) {
@@ -53,6 +54,22 @@ class MediaUtils {
                 }
             });
         });
+    }
+
+    static generateEncryptionKeys(meetingUuid, rtmsStreamId, secret) {
+        return {
+            audio: crypto.createHmac('sha256', secret)
+                .update(`${meetingUuid},${rtmsStreamId},AUDIO`)
+                .digest('hex'),
+            video: crypto.createHmac('sha256', secret)
+                .update(`${meetingUuid},${rtmsStreamId},VIDEO`)
+                .digest('hex'),
+            // Add other media types...
+        };
+    }
+
+    static encryptPayload(data, key) {
+        // Add encryption logic
     }
 }
 

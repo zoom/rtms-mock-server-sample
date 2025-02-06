@@ -37,7 +37,18 @@ class MediaHandler {
     static handleMediaMessage(data, ws) {
         try {
             const message = JSON.parse(data);
+            
+            // Handle debug logs
+            if (message.msg_type === "DEBUG_LOG") {
+                console.log("DEBUG:", message.content.message);
+                return;
+            }
+
             console.log("Received message on media channel:", message.msg_type);
+
+            if (message.msg_type === "MEDIA_DATA_AUDIO") {
+                console.log("Received audio data, length:", message.content.data.length);
+            }
 
             if (message.msg_type === "SESSION_STATE_UPDATE" && 
                 global.signalingWebsocket?.readyState === WebSocket.OPEN) {
