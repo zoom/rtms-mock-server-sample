@@ -1,3 +1,34 @@
+let ws;
+
+function setupWebSocket() {
+    ws = new WebSocket(CONFIG.WS_URL);
+    
+    ws.onmessage = function(event) {
+        try {
+            const data = JSON.parse(event.data);
+            // Only log to console
+            console.log('WebSocket message received:', data);
+        } catch (e) {
+            console.error('Error parsing WebSocket message:', e);
+        }
+    };
+
+    ws.onopen = function() {
+        console.log('WebSocket connected');
+    };
+
+    ws.onclose = function() {
+        console.log('WebSocket disconnected');
+    };
+
+    ws.onerror = function(error) {
+        console.error('WebSocket error:', error);
+    };
+}
+
+// Only expose what's needed
+window.setupWebSocket = setupWebSocket;
+
 class WebSocketHandler {
     static async setupWebSocket(serverUrl) {
         let wsUrl = serverUrl;
@@ -23,13 +54,7 @@ class WebSocketHandler {
     }
 
     static handleMessage = (event) => {
-        try {
-            const message = JSON.parse(event.data);
-            console.log("Received message type:", message.msg_type);
-            UIController.handleIncomingMedia(message);
-        } catch (error) {
-            console.error("Error processing message:", error);
-        }
+        handleWebSocketMessage(event.data);
     }
 
     static handleClose = () => {
@@ -235,4 +260,8 @@ class WebSocketHandler {
             timestamp: Date.now()
         }));
     }
+}
+
+function onSignalingEvent(data) {
+    handleSignalingEvent(data);
 } 
