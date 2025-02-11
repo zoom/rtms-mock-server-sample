@@ -36,6 +36,32 @@ class WebSocketHandler {
             wsUrl = `ws://${CONFIG.WS_ENDPOINTS.DEFAULT_HOST}:${CONFIG.WS_ENDPOINTS.DEFAULT_PORT}`;
         }
 
+        // Create signaling socket
+        const signalingSocket = new WebSocket(`${wsUrl}/signaling`);
+        
+        // Log signaling socket events
+        signalingSocket.onopen = () => {
+            UIController.addSignalingLog('Signaling Socket Connected');
+        };
+
+        signalingSocket.onclose = () => {
+            UIController.addSignalingLog('Signaling Socket Closed');
+        };
+
+        signalingSocket.onerror = (error) => {
+            UIController.addSignalingLog('Signaling Socket Error', { error: error.message });
+        };
+
+        signalingSocket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                UIController.addSignalingLog(`Received ${data.msg_type}`, data);
+            } catch (error) {
+                UIController.addSignalingLog('Error Processing Message', { error: error.message });
+            }
+        };
+
+        // Setup media socket
         RTMSState.mediaSocket = new WebSocket(`${wsUrl}/all`);
         this.setupWebSocketHandlers();
     }
@@ -48,23 +74,39 @@ class WebSocketHandler {
     }
 
     static handleOpen = () => {
-        console.log('Connected to media server');
+        UIController.addSystemLog('Media Socket', 'Connected to media server');
         RTMSState.sessionState = CONFIG.STATES.STARTED;
         MediaHandler.startRecording();
     }
 
     static handleMessage = (event) => {
-        handleWebSocketMessage(event.data);
+        try {
+            const data = JSON.parse(event.data);
+            
+            // Handle signaling logs separately
+            if (data.msg_type === 'SIGNALING_LOG') {
+                console.log('Received signaling log:', data); // Debug log
+                UIController.addSystemLog('Signaling', data.content.event, {
+                    status: data.content.status,
+                    ...data.content.details
+                });
+                return;
+            }
+
+            handleWebSocketMessage(event.data);
+        } catch (error) {
+            console.error('Error handling websocket message:', error);
+        }
     }
 
     static handleClose = () => {
-        console.log('Media connection closed');
+        UIController.addSystemLog('Media Socket', 'Connection closed');
         MediaHandler.stopRecording();
         UIController.handleStop();
     }
 
     static handleError = (error) => {
-        console.error('WebSocket error:', error);
+        UIController.addSystemLog('Media Socket', 'Connection error', { error: error.message });
         MediaHandler.stopRecording();
         UIController.handleStop();
     }
@@ -125,6 +167,7 @@ class WebSocketHandler {
                 }
 
                 if (RTMSState.mediaSocket?.readyState === WebSocket.OPEN) {
+                    UIController.addSystemLog('Media', `${type} sent`, { timestamp: Date.now() });
                     RTMSState.mediaSocket.send(JSON.stringify({
                         msg_type: type,
                         content: {
@@ -139,7 +182,7 @@ class WebSocketHandler {
             
             reader.readAsArrayBuffer(data);
         } catch (error) {
-            console.error("Error processing media data:", error);
+            UIController.addSystemLog('Media', 'Error sending media data', { error: error.message });
         }
     }
 
@@ -252,6 +295,7 @@ class WebSocketHandler {
     static sendSessionStateUpdate(state, stopReason) {
         if (!RTMSState.mediaSocket || RTMSState.mediaSocket.readyState !== WebSocket.OPEN) return;
 
+        UIController.addSystemLog('Session', `State updated to ${state}`, { stopReason });
         RTMSState.mediaSocket.send(JSON.stringify({
             msg_type: "SESSION_STATE_UPDATE",
             rmts_session_id: RTMSState.mediaSocket.rtmsSessionId,

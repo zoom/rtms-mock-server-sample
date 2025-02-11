@@ -8,6 +8,9 @@ class SignalingHandler {
         try {
             const message = JSON.parse(data);
             
+            // Add log for incoming signaling message
+            this.emitSignalingLog('Received', message.msg_type, message);
+            
             switch (message.msg_type) {
                 case "SIGNALING_HAND_SHAKE_REQ":
                     this.handleHandshake(ws, message);
@@ -25,17 +28,21 @@ class SignalingHandler {
                     console.log("Unknown signaling message type:", message.msg_type);
             }
         } catch (error) {
-            console.error("Error processing signaling message:", error);
+            this.emitSignalingLog('Error', 'Message Processing', { error: error.message });
         }
     }
 
     static handleHandshake(ws, message) {
+        this.emitSignalingLog('Info', 'Handshake Request Received', message);
+        
         if (!this.validateHandshakeMessage(ws, message)) {
+            this.emitSignalingLog('Failed', 'Handshake Validation Failed', message);
             return;
         }
 
-        // Success response
-        WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_OK", null, {
+        this.emitSignalingLog('Success', 'Handshake Validation Successful', message);
+        
+        const response = {
             media_server: {
                 server_urls: {
                     audio: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.AUDIO}`,
@@ -45,7 +52,10 @@ class SignalingHandler {
                 },
                 srtp_keys: this.generateSRTPKeys(),
             }
-        });
+        };
+
+        this.emitSignalingLog('Info', 'Sending Handshake Response', response);
+        WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_OK", null, response);
     }
 
     static validateHandshakeMessage(ws, message) {
@@ -123,6 +133,7 @@ class SignalingHandler {
     }
 
     static handleClose() {
+        this.emitSignalingLog('Event', 'Connection Closed');
         console.log("Handshake connection closed");
         if (global.mediaServer) {
             global.mediaServer.close();
@@ -131,7 +142,8 @@ class SignalingHandler {
         global.signalingWebsocket = null;
     }
 
-    static handleError() {
+    static handleError(error) {
+        this.emitSignalingLog('Error', 'Connection Error', { error: error?.message });
         console.log("Handshake connection error");
         if (global.mediaServer) {
             global.mediaServer.close();
@@ -148,12 +160,18 @@ class SignalingHandler {
                 ws.subscribedEvents.add(event.event_type);
             }
         });
-        console.log(`Updated event subscriptions: ${Array.from(ws.subscribedEvents)}`);
+        this.emitSignalingLog('Info', 'Event Subscription Updated', {
+            subscribed_events: Array.from(ws.subscribedEvents)
+        });
     }
 
     static handleSessionStateUpdate(ws, message) {
         const { state, rtms_session_id } = message;
         ws.sessionState = state;
+        this.emitSignalingLog('Info', 'Session State Update', {
+            state,
+            rtms_session_id
+        });
         this.broadcastSessionState(rtms_session_id, state);
     }
 
@@ -168,6 +186,24 @@ class SignalingHandler {
         };
 
         global.signalingWebsocket.send(JSON.stringify(stateMessage));
+    }
+
+    static emitSignalingLog(status, event, details = null) {
+        if (global.wss) {
+            global.wss.clients.forEach(client => {
+                if (client.readyState === 1) { // WebSocket.OPEN
+                    client.send(JSON.stringify({
+                        msg_type: 'SIGNALING_LOG',
+                        content: {
+                            status,
+                            event,
+                            details,
+                            timestamp: Date.now()
+                        }
+                    }));
+                }
+            });
+        }
     }
 }
 

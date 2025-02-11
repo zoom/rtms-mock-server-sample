@@ -44,6 +44,7 @@ class WSHandler {
 
         if (request.url === "/signaling") {
             console.log("Handling signaling upgrade");
+            SignalingHandler.emitSignalingLog('Info', 'Signaling Upgrade Request', { path: request.url });
             global.wss.handleUpgrade(request, socket, head, (ws) => {
                 global.wss.emit("connection", ws, request);
             });
@@ -83,9 +84,23 @@ class WSHandler {
         ws.missedKeepAlives = 0;
         ws.lastKeepAliveResponse = Date.now();
 
-        ws.on("close", () => SignalingHandler.handleClose());
-        ws.on("error", () => SignalingHandler.handleError());
-        ws.on("message", (data) => SignalingHandler.handleMessage(ws, data));
+        // Send signaling connection log
+        SignalingHandler.emitSignalingLog('Success', 'Signaling Connection Established');
+
+        ws.on("close", () => {
+            SignalingHandler.emitSignalingLog('Event', 'Signaling Connection Closed');
+            SignalingHandler.handleClose();
+        });
+        
+        ws.on("error", (error) => {
+            SignalingHandler.emitSignalingLog('Error', 'Signaling Connection Error', { error: error?.message });
+            SignalingHandler.handleError(error);
+        });
+        
+        ws.on("message", (data) => {
+            SignalingHandler.handleMessage(ws, data);
+        });
+        
         ws.on("pong", () => {
             ws.isAlive = true;
             ws.missedKeepAlives = 0;

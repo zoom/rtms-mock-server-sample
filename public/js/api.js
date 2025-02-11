@@ -2,7 +2,7 @@ class APIHandler {
     static async validateWebhook() {
         try {
             const webhookUrl = document.getElementById("webhookUrl").value;
-            console.log("Validating webhook URL:", webhookUrl);
+            UIController.addSystemLog('Webhook', 'Validation request sent', { url: webhookUrl });
 
             const response = await fetch("/api/validate-webhook", {
                 method: "POST",
@@ -13,25 +13,31 @@ class APIHandler {
             });
 
             const data = await response.json();
-            console.log("Validation response:", data);
 
             if (data.success) {
-                document.getElementById("response").innerHTML = "Webhook validated successfully!";
+                UIController.addSystemLog('Webhook', 'Validation successful');
+                // Enable the start meeting button
                 document.getElementById("sendBtn").disabled = false;
+                // Store the validated URL for later use
+                window.validatedWebhookUrl = webhookUrl;
             } else {
-                document.getElementById("response").innerHTML = `Validation failed: ${data.error}`;
+                UIController.addSystemLog('Webhook', 'Validation failed', { error: data.error });
                 document.getElementById("sendBtn").disabled = true;
+                window.validatedWebhookUrl = null;
             }
         } catch (error) {
             console.error("Validation error:", error);
-            document.getElementById("response").innerHTML = `Error: ${error.message}`;
+            UIController.addSystemLog('Webhook', 'Validation error', { error: error.message });
+            document.getElementById("sendBtn").disabled = true;
+            window.validatedWebhookUrl = null;
         }
     }
 
     static async sendWebhook() {
         try {
-            const webhookUrl = document.getElementById("webhookUrl").value;
-            console.log("Sending webhook to URL:", webhookUrl);
+            // Use the stored validated URL
+            const webhookUrl = window.validatedWebhookUrl || document.getElementById("webhookUrl").value;
+            UIController.addSignalingLog('Sending Meeting Start Request', { webhookUrl });
 
             const response = await fetch("/api/send-webhook", {
                 method: "POST",
@@ -42,14 +48,20 @@ class APIHandler {
             });
 
             const data = await response.json();
-            document.getElementById("response").innerHTML = `<pre>${JSON.stringify(data, null, 2)}</pre>`;
-
-            if (data.success && data.sent.payload.payload.object.server_urls) {
+            
+            if (data.success && data.sent?.payload?.payload?.object?.server_urls) {
+                UIController.addSignalingLog('Meeting Start Success', {
+                    server_urls: data.sent.payload.payload.object.server_urls
+                });
                 await MediaHandler.startMediaStream(data.sent.payload.payload.object.server_urls);
+            } else {
+                UIController.addSignalingLog('Meeting Start Failed', data);
+                document.getElementById("sendBtn").disabled = true;
             }
         } catch (error) {
+            UIController.addSignalingLog('Meeting Start Error', { error: error.message });
             console.error("Send webhook error:", error);
-            document.getElementById("response").innerHTML = `Error: ${error.message}`;
+            document.getElementById("sendBtn").disabled = true;
         }
     }
 } 

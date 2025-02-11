@@ -10,6 +10,14 @@ class UIController {
         document.getElementById('resumeBtn').addEventListener('click', this.handleResume);
         document.getElementById('stopBtn').addEventListener('click', this.handleStop);
         document.getElementById('endBtn').addEventListener('click', this.handleEnd);
+
+        // Add input validation
+        const webhookInput = document.getElementById('webhookUrl');
+        webhookInput.addEventListener('input', () => {
+            // Disable start button when URL is modified
+            document.getElementById('sendBtn').disabled = true;
+            window.validatedWebhookUrl = null;
+        });
     }
 
     static updateButtonStates(isActive) {
@@ -184,6 +192,68 @@ class UIController {
 
     static showError(message) {
         document.getElementById('response').innerHTML = message;
+    }
+
+    static addSystemLog(type, message, details = null) {
+        const logsDiv = document.getElementById('system-logs');
+        if (!logsDiv) return;
+
+        console.log('Adding system log:', { type, message, details }); // Debug log
+
+        const entry = document.createElement('div');
+        entry.className = 'log-entry system-log';
+        
+        // Add special styling for signaling logs
+        if (type === 'Signaling') {
+            entry.classList.add('signaling-log');
+            if (details?.status) {
+                entry.classList.add(details.status.toLowerCase());
+            }
+        }
+        
+        const timestamp = new Date().toLocaleTimeString();
+        
+        entry.innerHTML = `
+            <div class="log-header">
+                <div class="log-title">
+                    <i class="fas ${type === 'Signaling' ? 'fa-signal' : 'fa-info-circle'}"></i>
+                    <span>${type}: ${message}</span>
+                </div>
+                <div class="log-controls">
+                    <span class="log-timestamp">${timestamp}</span>
+                    ${details ? '<i class="fas fa-chevron-down"></i>' : ''}
+                </div>
+            </div>
+            ${details ? `
+            <div class="log-content">
+                <div class="content-wrapper">
+                    <pre>${JSON.stringify(details, null, 2)}</pre>
+                </div>
+            </div>
+            ` : ''}
+        `;
+
+        if (details) {
+            const header = entry.querySelector('.log-header');
+            const content = entry.querySelector('.log-content');
+            header.addEventListener('click', () => {
+                const arrow = header.querySelector('.fas');
+                arrow.classList.toggle('fa-chevron-down');
+                arrow.classList.toggle('fa-chevron-up');
+                content.classList.toggle('expanded');
+            });
+        }
+
+        logsDiv.appendChild(entry);
+        logsDiv.scrollTop = logsDiv.scrollHeight;
+    }
+
+    static addSignalingLog(event, details = null) {
+        this.addSystemLog('Signaling', event, {
+            status: 'info',
+            timestamp: new Date().toISOString(),
+            ...details
+        });
     }
 }
 

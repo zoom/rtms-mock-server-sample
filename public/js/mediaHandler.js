@@ -2,17 +2,21 @@ class MediaHandler {
     static async startMediaStream(serverUrl) {
         console.log("Starting media stream with URL:", serverUrl);
         try {
+            UIController.addSignalingLog('Starting Media Stream', { serverUrl });
+            
             RTMSState.mediaStream = await navigator.mediaDevices.getUserMedia({ 
                 video: true, 
                 audio: true 
             });
 
+            UIController.addSignalingLog('Media Stream Acquired');
             await this.setupVideoDisplay();
             await this.setupMediaRecorders();
             await this.setupSpeechRecognition();
             await WebSocketHandler.setupWebSocket(serverUrl);
 
         } catch (error) {
+            UIController.addSignalingLog('Media Stream Error', { error: error.message });
             console.error("Error starting media stream:", error);
             UIController.showError(`Error starting media stream: ${error.message}`);
         }

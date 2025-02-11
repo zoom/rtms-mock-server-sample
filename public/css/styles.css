@@ -430,3 +430,32 @@ button:hover:not(:disabled) {
     from { opacity: 0; transform: translateY(-10px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+.system-log {
+    border-left: 3px solid #2d8cff;
+}
+
+.system-log .log-message {
+    padding: 10px;
+    color: #e0e0e0;
+}
+
+.system-log .log-title {
+    color: #2d8cff;
+}
+
+.system-log.signaling-log {
+    border-left: 3px solid #ff9800;
+}
+
+.system-log.signaling-log .log-title {
+    color: #ff9800;
+}
+
+.system-log.signaling-log.success {
+    border-left: 3px solid #4caf50;
+}
+
+.system-log.signaling-log.error {
+    border-left: 3px solid #f44336;
+}
