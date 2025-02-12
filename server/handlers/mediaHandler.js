@@ -1,6 +1,7 @@
 const WebSocket = require("ws");
 const WebSocketUtils = require('../utils/wsUtils');
 const CONFIG = require('../config/serverConfig');
+const SignalingHandler = require('./signalingHandler');
 
 class MediaHandler {
     static setupMediaServer(httpServer) {
@@ -84,12 +85,15 @@ class MediaHandler {
 
     static handleSessionStop() {
         if (global.mediaServer) {
+            // Get a random stop reason from SignalingHandler
+            const stopReason = SignalingHandler.getRandomStopReason();
+            
             global.mediaServer.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({
                         msg_type: "STREAM_STATE_UPDATE",
                         state: "TERMINATED",
-                        reason: "STOP_BC_MEETING_ENDED",
+                        reason: stopReason,
                         timestamp: Date.now()
                     }));
                     client.close();
@@ -140,13 +144,16 @@ class MediaHandler {
 
     static closeMediaServer() {
         if (global.mediaServer) {
+            // Get a random stop reason from SignalingHandler
+            const stopReason = SignalingHandler.getRandomStopReason();
+            
             global.mediaServer.clients.forEach(client => {
                 try {
                     client.send(JSON.stringify({
                         msg_type: "STREAM_STATE_UPDATE",
                         rtms_stream_id: client.rtmsStreamId,
                         state: "TERMINATED",
-                        reason: "STOP_BC_CONNECTION_INTERRUPTED",
+                        reason: stopReason,
                         timestamp: Date.now()
                     }));
                     client.close();

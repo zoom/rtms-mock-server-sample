@@ -21,10 +21,21 @@ global.wss = WSHandler.setupWebSocketServer(handshakeServer);
 global.isHandshakeServerActive = true;
 
 // Setup media server
-global.mediaServer = MediaHandler.setupMediaServer(mediaHttpServer);
+function initializeMediaServer() {
+    if (!global.mediaServer || global.mediaServer.isClosed) {
+        global.mediaServer = MediaHandler.setupMediaServer(mediaHttpServer);
+        console.log("Media server initialized");
+    }
+    return global.mediaServer;
+}
+
+// Initial media server setup
+initializeMediaServer();
 
 // Handle WebSocket upgrade requests
 handshakeServer.on("upgrade", (request, socket, head) => {
+    // Ensure media server is initialized before handling upgrade
+    initializeMediaServer();
     WSHandler.handleUpgrade(request, socket, head);
 });
 

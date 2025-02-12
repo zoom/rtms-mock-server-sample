@@ -137,6 +137,27 @@ class WSHandler {
         global.isHandshakeServerActive = false;
         MediaHandler.closeMediaServer();
     }
+
+    static async handleReconnection(ws, message) {
+        const { meeting_uuid, rtms_stream_id } = message;
+        
+        // Check if session exists
+        const existingSession = this.sessions.get(`${meeting_uuid}:${rtms_stream_id}`);
+        if (!existingSession) {
+            WebSocketUtils.sendWebSocketResponse(ws, "RECONNECT_RESP", "STATUS_SESSION_NOT_FOUND");
+            return;
+        }
+
+        // Handle reconnection
+        if (existingSession.isReconnecting) {
+            WebSocketUtils.sendWebSocketResponse(ws, "RECONNECT_RESP", "STATUS_DUPLICATE_CONNECTION");
+            ws.close();
+            return;
+        }
+
+        existingSession.isReconnecting = true;
+        
+    }
 }
 
 module.exports = WSHandler; 
