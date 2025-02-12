@@ -138,185 +138,15 @@ docker start rtms-mock-server
      "payload": {
        "operator_id": "user123",
        "object": {
-         "meeting_uuid": "meeting_uuid",
-         "rtms_stream_id": "rtms_stream_id",
-         "server_urls": ["ws://localhost:9092"]
+         "meeting_uuid": "WLhvT3WEBT6Srse3TgWRGz",
+         "rtms_stream_id": "rtms_WL3WEBT6SrTgWRGz_009",
+         "server_urls": ["ws://localhost:9092/"]
        }
      }
    }
    ```
-4. Verify in browser:
-   - Video preview appears
-   - WebSocket connections established (check Network tab)
-   - Buttons update (Pause/Stop/End enabled)
 
-#### 4. Testing RTMS Controls
-
-##### Stop/Start RTMS (Same Meeting)
-1. Start streaming some media
-2. Click "Stop RTMS"
-   - Stream stops
-   - WebSocket closes (check Network tab)
-   - "Start RTMS" button enables
-3. Click "Start RTMS"
-   - Your webhook receives same meeting_uuid/rtms_stream_id
-   - Stream resumes with same session
-   - Check webhook logs to verify IDs match
-
-##### Pause/Resume Testing
-1. During active streaming:
-   - Click "Pause RTMS"
-   - Verify stream pauses (video freezes)
-   - Check WebSocket remains connected
-2. Click "Resume RTMS"
-   - Stream should continue
-   - Same WebSocket connection used
-
-##### End Meeting Verification
-1. During any state (streaming/paused/stopped):
-   - Click "End Meeting"
-   - All connections should close
-   - UI resets completely
-   - Check webhook receiver stops getting data
-
-#### 5. Verifying Data Flow
-1. Open browser DevTools (F12)
-2. Network tab > WS filter
-3. You should see:
-   - Signaling connection (/signaling)
-   - Media connection (/all)
-4. Click messages to verify format:
-   ```json
-   {
-     "msg_type": "MEDIA_DATA_VIDEO",
-     "content": {
-       "user_id": 0,
-       "data": "base64_encoded_data",
-       "timestamp": 1234567890
-     }
-   }
-   ```
-
-#### 6. Common Testing Scenarios
-
-##### Test Reconnection
-1. Start a meeting
-2. Close browser tab
-3. Reopen and click "Start RTMS"
-4. Verify same meeting continues
-
-##### Test Multiple Stops/Starts
-1. Start meeting
-2. Stop RTMS
-3. Start RTMS multiple times
-4. Verify meeting_uuid remains constant
-
-##### Test Error Handling
-1. Enter invalid webhook URL
-2. Start without validation
-3. Stop server during streaming
-4. Verify error messages appear
-
-#### 7. WebSocket Connection Types
-
-##### Media WebSocket Endpoints
-The server provides different WebSocket endpoints for various media types:
-
-1. **All Media** (`/all`)
-   ```json
-   // Video Data
-   {
-     "msg_type": "MEDIA_DATA_VIDEO",
-     "content": {
-       "user_id": 0,
-       "data": "base64_encoded_video_frame",
-       "timestamp": 1234567890
-     }
-   }
-
-   // Audio Data
-   {
-     "msg_type": "MEDIA_DATA_AUDIO",
-     "content": {
-       "user_id": 0,
-       "data": "base64_encoded_audio_chunk",
-       "timestamp": 1234567890
-     }
-   }
-   ```
-
-2. **Video Only** (`/video`)
-   - Receives only video frames
-   - Format: H.264 encoded frames in base64
-   - Frame rate: 30fps
-   ```json
-   {
-     "msg_type": "MEDIA_DATA_VIDEO",
-     "content": {
-       "user_id": 0,
-       "data": "base64_encoded_video_frame",
-       "timestamp": 1234567890
-     }
-   }
-   ```
-
-3. **Audio Only** (`/audio`)
-   - Receives only audio chunks
-   - Format: PCM L16 16KHz mono
-   - Chunk size: 20ms
-   ```json
-   {
-     "msg_type": "MEDIA_DATA_AUDIO",
-     "content": {
-       "user_id": 0,
-       "data": "base64_encoded_audio_chunk",
-       "timestamp": 1234567890
-     }
-   }
-   ```
-
-4. **Transcript** (`/transcript`)
-   - Real-time speech-to-text data
-   ```json
-   {
-     "msg_type": "MEDIA_DATA_TRANSCRIPT",
-     "content": {
-       "user_id": 0,
-       "data": "transcribed text",
-       "timestamp": 1234567890
-     }
-   }
-   ```
-
-##### Testing Different Media Connections
-1. Connect to specific endpoint:
-   ```javascript
-   // Example using browser WebSocket
-   const videoWs = new WebSocket('ws://localhost:9092/video');
-   const audioWs = new WebSocket('ws://localhost:9092/audio');
-   const allWs = new WebSocket('ws://localhost:9092/all');
-   ```
-
-2. Handle media data:
-   ```javascript
-   ws.onmessage = (event) => {
-     const data = JSON.parse(event.data);
-     switch(data.msg_type) {
-       case 'MEDIA_DATA_VIDEO':
-         // Handle video frame
-         break;
-       case 'MEDIA_DATA_AUDIO':
-         // Handle audio chunk
-         break;
-       case 'MEDIA_DATA_TRANSCRIPT':
-         // Handle transcript
-         break;
-     }
-   };
-   ```
-
-#### 8. Handling RTMS Meeting Started Webhook
-
+#### 4. Handling RTMS Meeting Started Webhook
 When you receive the `meeting.rtms.started` webhook, follow these steps to establish connections:
 
 ##### 1. Parse Webhook Data
@@ -474,6 +304,171 @@ function handleReconnection(meetingUuid, streamId, serverUrl) {
     }
 }
 ```
+
+#### 5. Testing RTMS Controls
+
+##### Stop/Start RTMS (Same Meeting)
+1. Start streaming some media
+2. Click "Stop RTMS"
+   - Stream stops
+   - WebSocket closes (check Network tab)
+   - "Start RTMS" button enables
+3. Click "Start RTMS"
+   - Your webhook receives same meeting_uuid/rtms_stream_id
+   - Stream resumes with same session
+   - Check webhook logs to verify IDs match
+
+##### Pause/Resume Testing
+1. During active streaming:
+   - Click "Pause RTMS"
+   - Verify stream pauses (video freezes)
+   - Check WebSocket remains connected
+2. Click "Resume RTMS"
+   - Stream should continue
+   - Same WebSocket connection used
+
+##### End Meeting Verification
+1. During any state (streaming/paused/stopped):
+   - Click "End Meeting"
+   - All connections should close
+   - UI resets completely
+   - Check webhook receiver stops getting data
+
+#### 6. Verifying Data Flow
+1. Open browser DevTools (F12)
+2. Network tab > WS filter
+3. You should see:
+   - Signaling connection (/signaling)
+   - Media connection (/all)
+4. Click messages to verify format:
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_VIDEO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_data",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+#### 7. Common Testing Scenarios
+
+##### Test Reconnection
+1. Start a meeting
+2. Close browser tab
+3. Reopen and click "Start RTMS"
+4. Verify same meeting continues
+
+##### Test Multiple Stops/Starts
+1. Start meeting
+2. Stop RTMS
+3. Start RTMS multiple times
+4. Verify meeting_uuid remains constant
+
+##### Test Error Handling
+1. Enter invalid webhook URL
+2. Start without validation
+3. Stop server during streaming
+4. Verify error messages appear
+
+#### 8. WebSocket Connection Types
+
+##### Media WebSocket Endpoints
+The server provides different WebSocket endpoints for various media types:
+
+1. **All Media** (`/all`)
+   ```json
+   // Video Data
+   {
+     "msg_type": "MEDIA_DATA_VIDEO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_video_frame",
+       "timestamp": 1234567890
+     }
+   }
+
+   // Audio Data
+   {
+     "msg_type": "MEDIA_DATA_AUDIO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_audio_chunk",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+2. **Video Only** (`/video`)
+   - Receives only video frames
+   - Format: H.264 encoded frames in base64
+   - Frame rate: 30fps
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_VIDEO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_video_frame",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+3. **Audio Only** (`/audio`)
+   - Receives only audio chunks
+   - Format: PCM L16 16KHz mono
+   - Chunk size: 20ms
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_AUDIO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_audio_chunk",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+4. **Transcript** (`/transcript`)
+   - Real-time speech-to-text data
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_TRANSCRIPT",
+     "content": {
+       "user_id": 0,
+       "data": "transcribed text",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+##### Testing Different Media Connections
+1. Connect to specific endpoint:
+   ```javascript
+   // Example using browser WebSocket
+   const videoWs = new WebSocket('ws://localhost:9092/video');
+   const audioWs = new WebSocket('ws://localhost:9092/audio');
+   const allWs = new WebSocket('ws://localhost:9092/all');
+   ```
+
+2. Handle media data:
+   ```javascript
+   ws.onmessage = (event) => {
+     const data = JSON.parse(event.data);
+     switch(data.msg_type) {
+       case 'MEDIA_DATA_VIDEO':
+         // Handle video frame
+         break;
+       case 'MEDIA_DATA_AUDIO':
+         // Handle audio chunk
+         break;
+       case 'MEDIA_DATA_TRANSCRIPT':
+         // Handle transcript
+         break;
+     }
+   };
+   ```
 
 ## System Architecture
 
