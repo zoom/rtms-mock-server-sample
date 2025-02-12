@@ -189,9 +189,9 @@ class SignalingHandler {
     }
 
     static emitSignalingLog(status, event, details = null) {
-        if (global.wss) {
-            global.wss.clients.forEach(client => {
-                if (client.readyState === 1) { // WebSocket.OPEN
+        if (global.logsWss) {
+            global.logsWss.clients.forEach(client => {
+                if (client.readyState === 1 && client.isLogsConnection) { // WebSocket.OPEN
                     client.send(JSON.stringify({
                         msg_type: 'SIGNALING_LOG',
                         content: {

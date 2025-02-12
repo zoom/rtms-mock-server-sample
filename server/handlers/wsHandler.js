@@ -10,9 +10,23 @@ class WSHandler {
             clientTracking: true,
         });
 
+        // Create a separate WebSocket server for logs
+        const logsWss = new WebSocket.Server({
+            noServer: true,
+            clientTracking: true,
+        });
+
+        // Store logs server in global scope
+        global.logsWss = logsWss;
+
         wss.on("connection", this.handleConnection);
         wss.on("error", this.handleError);
         wss.on("close", this.handleClose);
+
+        logsWss.on("connection", (ws) => {
+            console.log("New logs connection established");
+            ws.isLogsConnection = true;
+        });
 
         // Setup periodic connection check
         setInterval(() => {
@@ -42,7 +56,12 @@ class WSHandler {
         WebSocketUtils.handleSocketError(socket);
         console.log("Upgrade request received for:", request.url);
 
-        if (request.url === "/signaling") {
+        if (request.url === "/logs") {
+            console.log("Handling logs upgrade");
+            global.logsWss.handleUpgrade(request, socket, head, (ws) => {
+                global.logsWss.emit("connection", ws, request);
+            });
+        } else if (request.url === "/signaling") {
             console.log("Handling signaling upgrade");
             SignalingHandler.emitSignalingLog('Info', 'Signaling Upgrade Request', { path: request.url });
             global.wss.handleUpgrade(request, socket, head, (ws) => {

@@ -10,6 +10,7 @@ global.isHandshakeServerActive = false;
 global.mediaServer = null;
 global.signalingWebsocket = null;
 global.wss = null;
+global.logsWss = null;
 
 // Setup servers
 const handshakeServer = ServerSetup.setupHandshakeServer();
