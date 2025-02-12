@@ -8,7 +8,7 @@ Repository: https://github.com/zoom/rtms-mock-server-sample
 ## Test Client
 A companion test client is available to help you test this mock server. The client implements all the necessary protocols and provides a user interface for testing different streaming scenarios.
 
-- **Repository:** [RTMS Test Client](https://github.com/ojusave/rtmsTestClient)
+- **Repository:** [RTMS Test Client](https://github.com/zoom/rtms-mock-server-sample/blob/main/client.js)
 - **Features:**
   - Webhook endpoint implementation
   - WebSocket connection handling
@@ -47,7 +47,12 @@ npm start
 ```bash
 # Clone repository
 git clone https://github.com/zoom/rtms-mock-server-sample
-cd mockRTMSserver
+cd rtms-mock-server-sample
+
+# Option 1: Using docker-compose (recommended)
+docker-compose up -d
+
+# Option 2: Manual docker commands
 
 # Build Docker image
 docker build -t rtms-mock-server .
@@ -138,22 +143,177 @@ docker start rtms-mock-server
      "payload": {
        "operator_id": "user123",
        "object": {
-         "meeting_uuid": "meeting_uuid",
-         "rtms_stream_id": "rtms_stream_id",
-         "server_urls": ["ws://localhost:9092"]
+         "meeting_uuid": "WLhvT3WEBT6Srse3TgWRGz",
+         "rtms_stream_id": "rtms_WL3WEBT6SrTgWRGz_009",
+         "server_urls": ["ws://localhost:9092/"]
        }
      }
    }
    ```
-4. Verify in browser:
-   - Video preview appears
-   - WebSocket connections established (check Network tab)
-   - Buttons update (Pause/Stop/End enabled)
 
-#### 4. Testing RTMS Controls
+#### 4. Handling RTMS Meeting Started Webhook
+When you receive the `meeting.rtms.started` webhook, follow these steps to establish connections:
+
+##### 1. Parse Webhook Data
+```javascript
+app.post('/webhook', (req, res) => {
+    const { event, payload } = req.body;
+    
+    if (event === 'meeting.rtms.started') {
+        const {
+            meeting_uuid,
+            rtms_stream_id,
+            server_urls
+        } = payload.object;
+
+        // Store these for reconnection scenarios
+        connectToRTMS(meeting_uuid, rtms_stream_id, server_urls[0]);
+    }
+    res.status(200).send();
+});
+```
+
+##### 2. Establish Connections
+```javascript
+async function connectToRTMS(meetingUuid, streamId, serverUrl) {
+    // 1. First establish signaling connection
+    const signalingSocket = new WebSocket(`${serverUrl}`);
+    
+    signalingSocket.onopen = () => {
+        // Send handshake request
+        signalingSocket.send(JSON.stringify({
+            msg_type: "SIGNALING_HAND_SHAKE_REQ",
+            protocol_version: 1,
+            meeting_uuid: meetingUuid,
+            rtms_stream_id: streamId
+        }));
+    };
+
+    // 2. Handle signaling responses
+    signalingSocket.onmessage = async (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.msg_type === "SIGNALING_HAND_SHAKE_RESP" && 
+            data.status === "STATUS_OK") {
+            // Handshake successful, now connect to media
+            await connectToMedia(serverUrl, meetingUuid, streamId);
+        }
+    };
+}
+
+// 3. Connect to media endpoints
+async function connectToMedia(serverUrl, meetingUuid, streamId) {
+    // Connect to all media types
+    const mediaSocket = new WebSocket(`${serverUrl}/all`);
+    
+    // Or connect to specific media types
+    const videoSocket = new WebSocket(`${serverUrl}/video`);
+    const audioSocket = new WebSocket(`${serverUrl}/audio`);
+    const transcriptSocket = new WebSocket(`${serverUrl}/transcript`);
+
+    // Handle media data
+    mediaSocket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        switch(data.msg_type) {
+            case "MEDIA_DATA_VIDEO":
+                handleVideoData(data.content);
+                break;
+            case "MEDIA_DATA_AUDIO":
+                handleAudioData(data.content);
+                break;
+            case "MEDIA_DATA_TRANSCRIPT":
+                handleTranscriptData(data.content);
+                break;
+        }
+    };
+}
+
+// 4. Handle different media types
+function handleVideoData(content) {
+    const { data, timestamp, user_id } = content;
+    // data is base64 encoded H.264 frame
+    // Convert to Uint8Array for processing
+    const videoData = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    // Process video frame...
+}
+
+function handleAudioData(content) {
+    const { data, timestamp, user_id } = content;
+    // data is base64 encoded PCM audio
+    const audioData = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    // Process audio chunk...
+}
+```
+
+##### 3. Connection States
+Monitor and handle different connection states:
+```javascript
+function setupConnectionStateHandling(socket, type) {
+    socket.onclose = (event) => {
+        console.log(`${type} connection closed:`, event.code, event.reason);
+        // Implement reconnection logic if needed
+    };
+
+    socket.onerror = (error) => {
+        console.error(`${type} connection error:`, error);
+    };
+
+    // Keep-alive for signaling
+    if (type === 'signaling') {
+        setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    msg_type: "KEEP_ALIVE_REQ",
+                    timestamp: Date.now()
+                }));
+            }
+        }, 30000); // 30 seconds
+    }
+}
+```
+
+##### 4. Session State Updates
+Send session state updates through signaling:
+```javascript
+function updateSessionState(socket, state, reason = null) {
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            msg_type: "SESSION_STATE_UPDATE",
+            state: state, // "STARTED", "PAUSED", "RESUMED", "STOPPED"
+            stop_reason: reason,
+            timestamp: Date.now()
+        }));
+    }
+}
+```
+
+##### 5. Reconnection Handling
+```javascript
+function handleReconnection(meetingUuid, streamId, serverUrl) {
+    // Store connection info
+    localStorage.setItem('rtmsConnection', JSON.stringify({
+        meetingUuid,
+        streamId,
+        serverUrl,
+        lastState: 'STARTED'
+    }));
+
+    // On page load/reconnect
+    const savedConnection = JSON.parse(localStorage.getItem('rtmsConnection'));
+    if (savedConnection) {
+        connectToRTMS(
+            savedConnection.meetingUuid,
+            savedConnection.streamId,
+            savedConnection.serverUrl
+        );
+    }
+}
+```
+
+#### 5. Testing RTMS Controls
 
 ##### Stop/Start RTMS (Same Meeting)
-1. Start streaming some media
+1. Make sure your session is started
 2. Click "Stop RTMS"
    - Stream stops
    - WebSocket closes (check Network tab)
@@ -176,28 +336,12 @@ docker start rtms-mock-server
 1. During any state (streaming/paused/stopped):
    - Click "End Meeting"
    - All connections should close
-   - UI resets completely
    - Check webhook receiver stops getting data
 
-#### 5. Verifying Data Flow
-1. Open browser DevTools (F12)
-2. Network tab > WS filter
-3. You should see:
-   - Signaling connection (/signaling)
-   - Media connection (/all)
-4. Click messages to verify format:
-   ```json
-   {
-     "msg_type": "MEDIA_DATA_VIDEO",
-     "content": {
-       "user_id": 0,
-       "data": "base64_encoded_data",
-       "timestamp": 1234567890
-     }
-   }
-   ```
+#### 6. Logs
+You can see the real time logs in the logs section
 
-#### 6. Common Testing Scenarios
+#### 7. Common Testing Scenarios
 
 ##### Test Reconnection
 1. Start a meeting
@@ -217,7 +361,7 @@ docker start rtms-mock-server
 3. Stop server during streaming
 4. Verify error messages appear
 
-#### 7. WebSocket Connection Types
+#### 8. WebSocket Connection Types
 
 ##### Media WebSocket Endpoints
 The server provides different WebSocket endpoints for various media types:
