@@ -621,7 +621,7 @@ class WebSocketHandler {
 
 ## License
 
-See [LICENSE](https://github.com/zoom/rtms-mock-server-sample/blob/main/license.md)) file for details.
+See [LICENSE](https://github.com/zoom/rtms-mock-server-sample/blob/main/license.md) file for details.
 
 ## Support
 
