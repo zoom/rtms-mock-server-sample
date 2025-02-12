@@ -3,7 +3,7 @@
 ## Overview
 This repo contains a mock Real-Time Media Streaming (RTMS) server that simulates WebSocket-based media streaming functionality. This server provides a complete development and testing environment for client-server interactions, including media streaming, signaling, and webhook management.
 
-Repository: https://github.com/ojusave/mockRTMSserver
+Repository: https://github.com/zoom/rtms-mock-server-sample
 
 ## Test Client
 A companion test client is available to help you test this mock server. The client implements all the necessary protocols and provides a user interface for testing different streaming scenarios.
@@ -33,7 +33,7 @@ A companion test client is available to help you test this mock server. The clie
 #### Conventional Setup
 ```bash
 # Clone repository
-git clone https://github.com/ojusave/mockRTMSserver
+git clone https://github.com/zoom/rtms-mock-server-sample
 cd mockRTMSserver
 
 # Install dependencies
@@ -49,7 +49,7 @@ cp config/credentials.example.json data/rtms_credentials.json
 #### Docker Setup
 ```bash
 # Clone repository
-git clone https://github.com/ojusave/mockRTMSserver
+git clone https://github.com/zoom/rtms-mock-server-sample
 cd mockRTMSserver
 
 # Build Docker image
