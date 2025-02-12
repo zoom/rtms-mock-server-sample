@@ -621,8 +621,9 @@ class WebSocketHandler {
 
 ## License
 
-MIT License - see LICENSE file for details
+See [LICENSE](./LICENSE.md) file for details.
 
 ## Support
 
-For issues and feature requests, please create an issue in the [GitHub repository](https://github.com/ojusave/mockRTMSserver/issues).
+For issues and feature requests, please create an issue in the [GitHub repository](https://github.com/zoom/rtms-mock-server-sample).
+
