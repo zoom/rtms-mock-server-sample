@@ -197,16 +197,17 @@ class SignalingHandler {
         this.emitSignalingLog('Event', 'Connection Closed');
         console.log("Handshake connection closed");
         
-        // Only try to clear the interval if ws exists and has a keepAliveInterval
+        // Clear the keep-alive interval
         if (ws && ws.keepAliveInterval) {
             clearInterval(ws.keepAliveInterval);
         }
         
-        // Don't automatically close the media server on connection close
         // Only clear the signaling websocket if it matches the current one
         if (global.signalingWebsocket === ws) {
             global.signalingWebsocket = null;
         }
+
+        // Don't close the media server, let it handle reconnections
     }
 
     static handleError(error) {
@@ -253,6 +254,19 @@ class SignalingHandler {
                     reason: stopReason,
                     timestamp: Date.now()
                 }));
+
+                // Close the current WebSocket connection to allow for a new session
+                ws.close();
+                global.signalingWebsocket = null;
+
+                // Don't close the media server, just reset its state
+                if (global.mediaServer) {
+                    global.mediaServer.clients.forEach(client => {
+                        if (client.readyState === 1) { // WebSocket.OPEN
+                            client.close();
+                        }
+                    });
+                }
             }
         } else {
             this.emitSignalingLog('Info', 'Session State Update', {

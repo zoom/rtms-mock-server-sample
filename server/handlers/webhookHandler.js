@@ -80,34 +80,40 @@ router.post("/validate-webhook", async (req, res) => {
 });
 
 router.post("/send-webhook", async (req, res) => {
-    const { webhookUrl } = req.body;
-    const credentials = CredentialsManager.loadCredentials();
-
-    // Get random credential and meeting info
-    const credential = getRandomEntry(credentials.auth_credentials);
-    const meetingInfo = getRandomEntry(credentials.stream_meeting_info);
-
-    const payload = {
-        eventType: "meeting.rtms.started",
-        eventTime: Date.now(),
-        clientId: credential.client_id,
-        userId: credential.userID,
-        accountId: credential.accountId,
-        payload: {
-            event: "meeting.rtms.started",
-            event_ts: Date.now(),
-            payload: {
-                operator_id: credential.userID,
-                object: {
-                    meeting_uuid: meetingInfo.meeting_uuid,
-                    rtms_stream_id: meetingInfo.rtms_stream_id,
-                    server_urls: "ws://0.0.0.0:9092",
-                },
-            },
-        },
-    };
-
+    const { webhookUrl, isNewMeeting, existingPayload } = req.body;
+    
     try {
+        let payload;
+        if (isNewMeeting || !existingPayload) {
+            // Generate new payload for new meetings
+            const credentials = CredentialsManager.loadCredentials();
+            const credential = getRandomEntry(credentials.auth_credentials);
+            const meetingInfo = getRandomEntry(credentials.stream_meeting_info);
+
+            payload = {
+                eventType: "meeting.rtms.started",
+                eventTime: Date.now(),
+                clientId: credential.client_id,
+                userId: credential.userID,
+                accountId: credential.accountId,
+                payload: {
+                    event: "meeting.rtms.started",
+                    event_ts: Date.now(),
+                    payload: {
+                        operator_id: credential.userID,
+                        object: {
+                            meeting_uuid: meetingInfo.meeting_uuid,
+                            rtms_stream_id: meetingInfo.rtms_stream_id,
+                            server_urls: "ws://0.0.0.0:9092",
+                        },
+                    },
+                },
+            };
+        } else {
+            // Use existing payload for RTMS restart
+            payload = existingPayload;
+        }
+
         const response = await fetch(webhookUrl, {
             method: "POST",
             headers: {

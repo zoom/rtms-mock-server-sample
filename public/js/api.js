@@ -33,34 +33,50 @@ class APIHandler {
         }
     }
 
-    static async sendWebhook() {
+    static async sendWebhook(isNewMeeting = true) {
         try {
-            // Use the stored validated URL
             const webhookUrl = window.validatedWebhookUrl || document.getElementById("webhookUrl").value;
             UIController.addSignalingLog('Sending Meeting Start Request', { webhookUrl });
 
+            // Always send through our server endpoint
             const response = await fetch("/api/send-webhook", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                 },
-                body: JSON.stringify({ webhookUrl }),
+                body: JSON.stringify({ 
+                    webhookUrl,
+                    isNewMeeting,
+                    existingPayload: isNewMeeting ? null : window.lastWebhookPayload 
+                }),
             });
 
             const data = await response.json();
             
-            if (data.success && data.sent?.payload?.payload?.object?.server_urls) {
-                UIController.addSignalingLog('Meeting Start Success', {
-                    server_urls: data.sent.payload.payload.object.server_urls
-                });
-                await MediaHandler.startMediaStream(data.sent.payload.payload.object.server_urls);
+            if (data.success) {
+                if (isNewMeeting) {
+                    // Store the successful payload for future RTMS starts
+                    window.lastWebhookPayload = data.sent;
+                }
+                await this.handleWebhookResponse(data, webhookUrl);
             } else {
-                UIController.addSignalingLog('Meeting Start Failed', data);
-                document.getElementById("sendBtn").disabled = true;
+                throw new Error(data.error || "Failed to get webhook payload");
             }
         } catch (error) {
             UIController.addSignalingLog('Meeting Start Error', { error: error.message });
             console.error("Send webhook error:", error);
+            document.getElementById("sendBtn").disabled = true;
+        }
+    }
+
+    static async handleWebhookResponse(payload, webhookUrl) {
+        if (payload.success && payload.sent?.payload?.payload?.object?.server_urls) {
+            UIController.addSignalingLog('Meeting Start Success', {
+                server_urls: payload.sent.payload.payload.object.server_urls
+            });
+            await MediaHandler.startMediaStream(payload.sent.payload.payload.object.server_urls);
+        } else {
+            UIController.addSignalingLog('Meeting Start Failed', payload);
             document.getElementById("sendBtn").disabled = true;
         }
     }

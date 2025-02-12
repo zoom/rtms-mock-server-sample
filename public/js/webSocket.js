@@ -304,6 +304,47 @@ class WebSocketHandler {
             timestamp: Date.now()
         }));
     }
+
+    static closeConnections() {
+        // Close media socket
+        if (RTMSState.mediaSocket) {
+            RTMSState.mediaSocket.close();
+            RTMSState.mediaSocket = null;
+        }
+        
+        // Close signaling socket
+        if (RTMSState.signalingSocket) {
+            RTMSState.signalingSocket.close();
+            RTMSState.signalingSocket = null;
+        }
+    }
+
+    static setupSignalingSocket(serverUrl) {
+        return new Promise((resolve, reject) => {
+            const wsUrl = serverUrl.replace('https://', 'wss://').replace('http://', 'ws://');
+            RTMSState.signalingSocket = new WebSocket(`${wsUrl}/signaling`);
+            
+            RTMSState.signalingSocket.onopen = () => {
+                console.log("Signaling WebSocket connected");
+                UIController.addSystemLog('Signaling', 'Connection established');
+                resolve();
+            };
+            
+            RTMSState.signalingSocket.onerror = (error) => {
+                console.error("Signaling WebSocket error:", error);
+                UIController.addSystemLog('Signaling', 'Connection error', { error });
+                reject(error);
+            };
+            
+            RTMSState.signalingSocket.onclose = () => {
+                console.log("Signaling WebSocket closed");
+                UIController.addSystemLog('Signaling', 'Connection closed');
+            };
+            
+            // Add message handler
+            this.setupSignalingMessageHandler(RTMSState.signalingSocket);
+        });
+    }
 }
 
 function onSignalingEvent(data) {

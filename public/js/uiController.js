@@ -1,33 +1,50 @@
 class UIController {
     static init() {
         this.attachEventListeners();
+        // Initialize button states
+        this.resetUIState();
+        window.currentMeetingId = null; // Initialize meeting ID storage
+        window.lastWebhookPayload = null; // Store the last webhook payload
+        console.log("UI Controller initialized");
     }
 
     static attachEventListeners() {
         document.getElementById('validateBtn').addEventListener('click', APIHandler.validateWebhook);
-        document.getElementById('sendBtn').addEventListener('click', APIHandler.sendWebhook);
-        document.getElementById('pauseBtn').addEventListener('click', this.handlePause);
-        document.getElementById('resumeBtn').addEventListener('click', this.handleResume);
-        document.getElementById('stopBtn').addEventListener('click', this.handleStop);
-        document.getElementById('endBtn').addEventListener('click', this.handleEnd);
+        document.getElementById('sendBtn').addEventListener('click', () => {
+            // Start Meeting button
+            APIHandler.sendWebhook(true); // true indicates new meeting
+        });
+        document.getElementById('pauseBtn').addEventListener('click', () => this.handlePause());
+        document.getElementById('resumeBtn').addEventListener('click', () => this.handleResume());
+        document.getElementById('stopBtn').addEventListener('click', () => this.handleStop());
+        document.getElementById('startRtmsBtn').addEventListener('click', () => {
+            // Start RTMS button - reuse the last webhook payload
+            if (window.lastWebhookPayload) {
+                APIHandler.sendWebhook(false); // false indicates reuse existing meeting
+            } else {
+                console.error("No previous meeting payload found");
+                this.showError("No previous meeting found. Please start a new meeting first.");
+            }
+        });
+        document.getElementById('endBtn').addEventListener('click', () => this.handleEnd());
 
         // Add input validation
         const webhookInput = document.getElementById('webhookUrl');
         webhookInput.addEventListener('input', () => {
-            // Disable start button when URL is modified
             document.getElementById('sendBtn').disabled = true;
             window.validatedWebhookUrl = null;
         });
     }
 
     static updateButtonStates(isActive) {
+        document.getElementById('sendBtn').disabled = true; // Always disabled during active session
         document.getElementById('pauseBtn').disabled = !isActive;
-        document.getElementById('resumeBtn').disabled = true;
         document.getElementById('stopBtn').disabled = !isActive;
-        document.getElementById('endBtn').disabled = !isActive;
-        document.getElementById('sendBtn').disabled = isActive;
         document.getElementById('validateBtn').disabled = isActive;
         document.getElementById('webhookUrl').disabled = isActive;
+        document.getElementById('resumeBtn').disabled = true;
+        document.getElementById('startRtmsBtn').disabled = true; // Disabled during active session
+        document.getElementById('endBtn').disabled = false; // Always enabled during active session
     }
 
     static handlePause() {
@@ -37,27 +54,21 @@ class UIController {
             console.log("Pausing session...");
             RTMSState.sessionState = CONFIG.STATES.PAUSED;
             RTMSState.isStreamingEnabled = false;
-
-            // Stop media recorders
+            
+            // Don't stop media recorders, just pause them
             if (RTMSState.videoRecorder?.state === 'recording') {
                 RTMSState.videoRecorder.pause();
             }
             if (RTMSState.audioRecorder?.state === 'recording') {
                 RTMSState.audioRecorder.pause();
             }
-
-            // Stop speech recognition
-            if (RTMSState.recognition) {
-                RTMSState.recognition.stop();
-            }
-
-            // Disable media tracks
-            MediaHandler.toggleMediaTracks(false);
             
             WebSocketHandler.sendSessionStateUpdate(CONFIG.STATES.PAUSED, "ACTION_BY_USER");
             
             document.getElementById('resumeBtn').disabled = false;
             document.getElementById('pauseBtn').disabled = true;
+            // Ensure end button stays enabled
+            document.getElementById('endBtn').disabled = false;
 
         } catch (error) {
             console.error("Error pausing session:", error);
@@ -95,6 +106,8 @@ class UIController {
             
             document.getElementById('pauseBtn').disabled = false;
             document.getElementById('resumeBtn').disabled = true;
+            // Ensure end button stays enabled
+            document.getElementById('endBtn').disabled = false;
 
         } catch (error) {
             console.error("Error resuming session:", error);
@@ -102,20 +115,15 @@ class UIController {
     }
 
     static handleStop() {
-        console.log("Stopping session...");
-        RTMSState.isStreamingEnabled = false;
-        RTMSState.sessionState = CONFIG.STATES.STOPPED;
+        if (!RTMSState.mediaSocket || RTMSState.sessionState === CONFIG.STATES.STOPPED) return;
         
-        // Stop all recordings and streams
-        MediaHandler.cleanup();
+        console.log("Stopping RTMS session...");
+        RTMSState.sessionState = CONFIG.STATES.STOPPED;
+        RTMSState.isStreamingEnabled = false;
         
         if (RTMSState.mediaSocket?.readyState === WebSocket.OPEN) {
             WebSocketHandler.sendSessionStateUpdate(CONFIG.STATES.STOPPED, "ACTION_BY_USER");
         }
-
-        // Update UI
-        this.updateButtonStates(false);
-        document.getElementById('sendBtn').disabled = false;
 
         // Close WebSocket connection
         if (RTMSState.mediaSocket) {
@@ -123,16 +131,51 @@ class UIController {
             RTMSState.mediaSocket = null;
         }
 
-        // Reset state
-        RTMSState.mediaStream = null;
-        RTMSState.videoRecorder = null;
-        RTMSState.audioRecorder = null;
+        // Keep media stream active but stop sending data
+        if (RTMSState.videoRecorder?.state === 'recording') {
+            RTMSState.videoRecorder.pause();
+        }
+        if (RTMSState.audioRecorder?.state === 'recording') {
+            RTMSState.audioRecorder.pause();
+        }
+
+        // Update button states for stopped RTMS
+        document.getElementById('sendBtn').disabled = true;
+        document.getElementById('startRtmsBtn').disabled = false; // Enable Start RTMS
+        document.getElementById('endBtn').disabled = false; // Keep End Meeting enabled
+        document.getElementById('pauseBtn').disabled = true;
+        document.getElementById('resumeBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('validateBtn').disabled = false;
+        document.getElementById('webhookUrl').disabled = false;
+
+        // Keep the current meeting ID
+        console.log("RTMS stopped, Start RTMS button enabled");
+    }
+
+    static resetUIState() {
+        // Enable/disable appropriate buttons
+        document.getElementById('sendBtn').disabled = !window.validatedWebhookUrl;
+        document.getElementById('pauseBtn').disabled = true;
+        document.getElementById('resumeBtn').disabled = true;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('startRtmsBtn').disabled = true;
+        document.getElementById('endBtn').disabled = true;
+        document.getElementById('validateBtn').disabled = false;
+        document.getElementById('webhookUrl').disabled = false;
+
+        console.log("UI state reset completed");
     }
 
     static handleEnd() {
         console.log("Ending meeting...");
         RTMSState.isStreamingEnabled = false;
         RTMSState.sessionState = CONFIG.STATES.STOPPED;
+        
+        // Clear all stored meeting data
+        localStorage.removeItem('currentMeetingId');
+        window.currentMeetingId = null;
+        window.lastWebhookPayload = null; // Clear the stored webhook payload
 
         // Stop all recordings and streams
         MediaHandler.cleanup();
@@ -148,12 +191,9 @@ class UIController {
         RTMSState.videoRecorder = null;
         RTMSState.audioRecorder = null;
 
-        // Update UI
-        this.updateButtonStates(false);
-        document.getElementById('sendBtn').disabled = false;
-        document.getElementById('validateBtn').disabled = false;
-        document.getElementById('webhookUrl').disabled = false;
-
+        // Reset UI completely
+        this.resetUIState();
+        
         // Clear logs and transcripts
         document.getElementById('transcript').innerHTML = '';
         document.getElementById('response').innerHTML = '';
@@ -191,22 +231,25 @@ class UIController {
     }
 
     static showError(message) {
-        document.getElementById('response').innerHTML = message;
+        console.error("UI Error:", message);
+        const responseDiv = document.getElementById('response');
+        if (responseDiv) {
+            responseDiv.innerHTML = message;
+        }
     }
 
     static addSystemLog(type, message, details = null) {
         const logsDiv = document.getElementById('system-logs');
         if (!logsDiv) return;
 
-        console.log('Adding system log:', { type, message, details }); // Debug log
+        console.log('Adding system log:', { type, message, details });
 
         const entry = document.createElement('div');
         entry.className = 'log-entry system-log';
         
-        // Add special styling for signaling logs
         if (type === 'Signaling') {
             entry.classList.add('signaling-log');
-            if (details?.status) {
+            if (details && typeof details.status === 'string') {
                 entry.classList.add(details.status.toLowerCase());
             }
         }
@@ -254,6 +297,60 @@ class UIController {
             timestamp: new Date().toISOString(),
             ...details
         });
+    }
+
+    static handleServerStopConfirmation() {
+        const validatedUrl = window.validatedWebhookUrl; // Store the current validated URL
+        this.resetUIState();
+        window.validatedWebhookUrl = validatedUrl; // Restore the validated URL
+        document.getElementById('sendBtn').disabled = !window.validatedWebhookUrl;
+        console.log("Server stop confirmed, UI reset");
+    }
+
+    static async sendWebhook(url, isNewMeeting = true, meetingId = null) {
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    newMeeting: isNewMeeting,
+                    meetingId: meetingId || window.currentMeetingId
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            // Only store new meeting ID if it's a new meeting
+            if (isNewMeeting && data.meetingId) {
+                localStorage.setItem('currentMeetingId', data.meetingId);
+                window.currentMeetingId = data.meetingId;
+            }
+            
+            this.addSignalingLog('Webhook sent', data);
+
+            // After webhook validation, setup WebSocket
+            await WebSocketHandler.setupWebSocket(url);
+            // After WebSocket and signaling are connected, start media stream
+            await MediaHandler.startMediaStream(url);
+            // Update button states
+            this.updateButtonStates(true);
+
+        } catch (error) {
+            console.error("Send webhook error:", error);
+            this.showError(`Failed to send webhook: ${error.message}`);
+            throw error;
+        }
+    }
+
+    static storeMeetingId(meetingId) {
+        window.currentMeetingId = meetingId;
+        console.log("Stored meeting ID:", meetingId);
     }
 }
 

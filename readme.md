@@ -85,185 +85,140 @@ docker start rtms-mock-server
    npm start
    ```
 2. Open `http://localhost:9092` in your browser
-3. You should see the testing dashboard with:
-   - Webhook URL input field
-   - "Validate Webhook" button
-   - "Send Webhook" button
-   - Media preview area
-   - Stream control buttons
+3. Set up your webhook receiver (example using Express):
+   ```javascript
+   app.post('/webhook', (req, res) => {
+     const { event, payload } = req.body;
+     
+     // Handle URL validation
+     if (event === 'endpoint.url_validation') {
+       const { plainToken } = payload;
+       const encryptedToken = crypto
+         .createHmac('sha256', 'your_webhook_token')
+         .update(plainToken)
+         .digest('hex');
+         
+       return res.json({
+         plainToken,
+         encryptedToken
+       });
+     }
+     
+     // Handle meeting start events
+     if (event === 'meeting.rtms.started') {
+       console.log('Meeting UUID:', payload.object.meeting_uuid);
+       console.log('RTMS Stream ID:', payload.object.rtms_stream_id);
+       console.log('Server URLs:', payload.object.server_urls);
+     }
+     
+     res.status(200).send();
+   });
+   ```
 
-#### 2. Webhook Validation
-1. Enter your webhook URL in the input field
-2. Click "Validate Webhook" button
-3. The server will send a validation request to your webhook endpoint:
-   ```json
-   {
-     "event": "endpoint.url_validation",
-     "payload": {
-       "plainToken": "randomToken"
-     },
-     "event_ts": 1234567890
+#### 2. Testing Webhook Validation
+1. Start your webhook receiver (e.g., `node server.js`)
+2. Enter your webhook URL in the input field (e.g., `http://your-webhook-url/webhook`)
+3. Click "Validate Webhook" button
+4. Check your webhook receiver logs:
+   ```
+   Received validation request: {
+     event: "endpoint.url_validation",
+     payload: { plainToken: "abc123" }
    }
    ```
-4. Your webhook receiver should:
-   - Extract the plainToken
-   - Create HMAC-SHA256 hash using your webhook token
-   - Return response:
-     ```json
-     {
-       "plainToken": "same_random_token",
-       "encryptedToken": "hmac_hash_of_token"
-     }
-     ```
-5. Wait for validation success message
+5. Verify validation response in browser console:
+   ```
+   Webhook validated successfully
+   ```
 
-#### 3. Start Streaming Session
-1. After successful validation, click "Send Webhook"
-2. The server will send a webhook with streaming URLs:
+#### 3. Starting a New Meeting
+1. Click "Start Meeting" button
+2. Allow camera/microphone permissions when prompted
+3. Your webhook receiver should get:
    ```json
    {
      "event": "meeting.rtms.started",
      "payload": {
-       "operator_id": "user_id",
+       "operator_id": "user123",
        "object": {
-         "meeting_uuid": "meeting_id",
-         "rtms_stream_id": "stream_id",
-         "server_urls": ["ws://localhost:9092/signaling"]
+         "meeting_uuid": "meeting_uuid",
+         "rtms_stream_id": "rtms_stream_id",
+         "server_urls": ["ws://localhost:9092"]
        }
      }
    }
    ```
-3. Your client should:
-   - Generate HMAC signature:
-     ```javascript
-     const message = `${client_id}${meeting_uuid}${rtms_stream_id}`;
-     const signature = crypto
-       .createHmac('sha256', client_secret)
-       .update(message)
-       .digest('hex');
-     ```
-   - Send handshake request to the signaling server:
-     ```json
-     {
-       "msg_type": "SIGNALING_HAND_SHAKE_REQ",
-       "protocol_version": 1,
-       "meeting_uuid": "meeting_uuid",
-       "rtms_stream_id": "stream_id",
-       "signature": "generated_signature"
-     }
-     ```
-   - Receive media server URLs in response:
-     ```json
-     {
-       "msg_type": "SIGNALING_HAND_SHAKE_RESP",
-       "status_code": "STATUS_OK",
-       "media_server": {
-         "server_urls": {
-           "audio": "ws://localhost:8081/audio",
-           "video": "ws://localhost:8081/video",
-           "transcript": "ws://localhost:8081/transcript",
-           "all": "ws://localhost:8081/all"
-         }
-       }
-     }
-     ```
+4. Verify in browser:
+   - Video preview appears
+   - WebSocket connections established (check Network tab)
+   - Buttons update (Pause/Stop/End enabled)
 
-#### 4. Media Socket Connections
-1. Based on your streaming needs, connect to one or more media sockets:
-   - `/audio`: For audio-only streaming
-   - `/video`: For video-only streaming
-   - `/transcript`: For real-time transcription
-   - `/all`: For all media types
+#### 4. Testing RTMS Controls
 
-2. Each socket serves a specific purpose:
-   - Audio Socket:
-     - Receives PCM audio data (16KHz, mono)
-     - Handles audio state updates
-     - Reports audio statistics
+##### Stop/Start RTMS (Same Meeting)
+1. Start streaming some media
+2. Click "Stop RTMS"
+   - Stream stops
+   - WebSocket closes (check Network tab)
+   - "Start RTMS" button enables
+3. Click "Start RTMS"
+   - Your webhook receives same meeting_uuid/rtms_stream_id
+   - Stream resumes with same session
+   - Check webhook logs to verify IDs match
 
-   - Video Socket:
-     - Receives H.264/JPEG video frames
-     - Manages video quality settings
-     - Reports video statistics
+##### Pause/Resume Testing
+1. During active streaming:
+   - Click "Pause RTMS"
+   - Verify stream pauses (video freezes)
+   - Check WebSocket remains connected
+2. Click "Resume RTMS"
+   - Stream should continue
+   - Same WebSocket connection used
 
-   - Transcript Socket:
-     - Receives real-time transcription data
-     - Handles language settings
-     - Reports transcription status
+##### End Meeting Verification
+1. During any state (streaming/paused/stopped):
+   - Click "End Meeting"
+   - All connections should close
+   - UI resets completely
+   - Check webhook receiver stops getting data
 
-   - All-in-One Socket:
-     - Handles all media types
-     - Requires message type identification
-     - Suitable for simplified implementations
-
-#### 5. Media Streaming
-1. When prompted, allow camera/microphone access
-2. The client will:
-   - Connect to media WebSocket endpoints
-   - Start sending audio/video/transcript data
-   - Format data according to specifications:
-     ```json
-     {
-       "msg_type": "MEDIA_DATA_VIDEO",
-       "content": {
-         "user_id": 123,
-         "data": "base64_encoded_video_frame",
-         "timestamp": 1234567890
-       }
-     }
-     ```
-3. Use stream controls:
-   - Pause/Resume: Temporarily stop/restart streaming
-   - Stop: End the streaming session
-   - Mute: Toggle audio streaming
-   - Video Off: Toggle video streaming
-   - Each control action sends appropriate state updates:
-     ```json
-     {
-       "msg_type": "SESSION_STATE_UPDATE",
-       "state": "PAUSED",
+#### 5. Verifying Data Flow
+1. Open browser DevTools (F12)
+2. Network tab > WS filter
+3. You should see:
+   - Signaling connection (/signaling)
+   - Media connection (/all)
+4. Click messages to verify format:
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_VIDEO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_data",
        "timestamp": 1234567890
      }
-     ```
+   }
+   ```
 
-#### 6. Monitoring
-1. Browser Console (F12):
-   - WebSocket connection status
-   - Message events
-   - Media stream status
-2. Server Logs:
-   - Connection events
-   - Data flow status
-   - Error messages
-3. Preview Window:
-   - Local video preview
-   - Audio level indicators
-   - Connection status indicators
+#### 6. Common Testing Scenarios
 
-#### 7. Cleanup
-1. Click "Stop" to end streaming
-2. Server will:
-   - Send termination events
-   - Close WebSocket connections
-   - Clean up resources
-3. Verify all connections are closed in browser console
+##### Test Reconnection
+1. Start a meeting
+2. Close browser tab
+3. Reopen and click "Start RTMS"
+4. Verify same meeting continues
 
-### Common Issues and Solutions
+##### Test Multiple Stops/Starts
+1. Start meeting
+2. Stop RTMS
+3. Start RTMS multiple times
+4. Verify meeting_uuid remains constant
 
-1. **WebSocket Connection Fails**
-   - Verify server is running on correct ports
-   - Check credentials in rtms_credentials.json
-   - Ensure proper CORS configuration
-
-2. **Media Stream Issues**
-   - Verify camera/microphone permissions
-   - Check supported media formats
-   - Monitor browser console for errors
-
-3. **Webhook Testing Fails**
-   - Verify webhook URL is accessible
-   - Check webhook token configuration
-   - Ensure proper request format
+##### Test Error Handling
+1. Enter invalid webhook URL
+2. Start without validation
+3. Stop server during streaming
+4. Verify error messages appear
 
 ## System Architecture
 
