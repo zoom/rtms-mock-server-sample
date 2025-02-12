@@ -252,6 +252,8 @@ cp config/credentials.example.json data/rtms_credentials.json
 ### File Structure
 ```
 mockRTMSserver/
+├── Dockerfile              # Docker configuration
+├── .dockerignore          # Docker ignore file
 ├── server/
 │   ├── handlers/
 │   │   ├── mediaHandler.js      # Media streaming logic
