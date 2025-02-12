@@ -47,7 +47,7 @@ npm start
 ```bash
 # Clone repository
 git clone https://github.com/zoom/rtms-mock-server-sample
-cd mockRTMSserver
+cd rtms-mock-server-sample
 
 # Build Docker image
 docker build -t rtms-mock-server .
