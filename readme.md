@@ -308,7 +308,7 @@ function handleReconnection(meetingUuid, streamId, serverUrl) {
 #### 5. Testing RTMS Controls
 
 ##### Stop/Start RTMS (Same Meeting)
-1. Start streaming some media
+1. Make sure your session is started
 2. Click "Stop RTMS"
    - Stream stops
    - WebSocket closes (check Network tab)
@@ -331,26 +331,10 @@ function handleReconnection(meetingUuid, streamId, serverUrl) {
 1. During any state (streaming/paused/stopped):
    - Click "End Meeting"
    - All connections should close
-   - UI resets completely
    - Check webhook receiver stops getting data
 
-#### 6. Verifying Data Flow
-1. Open browser DevTools (F12)
-2. Network tab > WS filter
-3. You should see:
-   - Signaling connection (/signaling)
-   - Media connection (/all)
-4. Click messages to verify format:
-   ```json
-   {
-     "msg_type": "MEDIA_DATA_VIDEO",
-     "content": {
-       "user_id": 0,
-       "data": "base64_encoded_data",
-       "timestamp": 1234567890
-     }
-   }
-   ```
+#### 6. Logs
+You can see the real time logs in the logs section
 
 #### 7. Common Testing Scenarios
 
