@@ -49,6 +49,11 @@ npm start
 git clone https://github.com/zoom/rtms-mock-server-sample
 cd rtms-mock-server-sample
 
+# Option 1: Using docker-compose (recommended)
+docker-compose up -d
+
+# Option 2: Manual docker commands
+
 # Build Docker image
 docker build -t rtms-mock-server .
 
