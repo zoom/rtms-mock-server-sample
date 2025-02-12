@@ -18,12 +18,19 @@ A companion test client is available to help you test this mock server. The clie
 ## Setup and Testing
 
 ### Prerequisites
-- Node.js (v14+)
-- FFmpeg
-- npm
-- Modern web browser with WebRTC support
+- Option 1 (Conventional Setup):
+  - Node.js (v14+)
+  - FFmpeg
+  - npm
+  - Modern web browser with WebRTC support
+
+- Option 2 (Docker Setup):
+  - Docker
+  - Modern web browser with WebRTC support
 
 ### Installation
+
+#### Conventional Setup
 ```bash
 # Clone repository
 git clone https://github.com/ojusave/mockRTMSserver
@@ -37,6 +44,37 @@ mkdir data
 
 # Configure credentials
 cp config/credentials.example.json data/rtms_credentials.json
+```
+
+#### Docker Setup
+```bash
+# Clone repository
+git clone https://github.com/ojusave/mockRTMSserver
+cd mockRTMSserver
+
+# Build Docker image
+docker build -t rtms-mock-server .
+
+# Run the container
+docker run -d \
+  -p 9092:9092 \
+  -p 8081:8081 \
+  -v $(pwd)/data:/app/data \
+  --name rtms-mock-server \
+  rtms-mock-server
+
+# View logs
+docker logs -f rtms-mock-server
+```
+
+To stop the container:
+```bash
+docker stop rtms-mock-server
+```
+
+To restart the container:
+```bash
+docker start rtms-mock-server
 ```
 
 ### Testing Flow
@@ -248,6 +286,8 @@ cp config/credentials.example.json data/rtms_credentials.json
   - `/transcript`: Real-time transcript data
   - `/all`: Combined streams
 - Handles chunked media delivery and session lifecycle
+
+### File Structure
 
 ### File Structure
 ```
