@@ -8,7 +8,7 @@ Repository: https://github.com/zoom/rtms-mock-server-sample
 ## Test Client
 A companion test client is available to help you test this mock server. The client implements all the necessary protocols and provides a user interface for testing different streaming scenarios.
 
-- **Repository:** [RTMS Test Client](https://github.com/ojusave/rtmsTestClient)
+- **Repository:** [RTMS Test Client](https://github.com/zoom/rtms-mock-server-sample/blob/main/client.js)
 - **Features:**
   - Webhook endpoint implementation
   - WebSocket connection handling
@@ -314,6 +314,166 @@ The server provides different WebSocket endpoints for various media types:
      }
    };
    ```
+
+#### 8. Handling RTMS Meeting Started Webhook
+
+When you receive the `meeting.rtms.started` webhook, follow these steps to establish connections:
+
+##### 1. Parse Webhook Data
+```javascript
+app.post('/webhook', (req, res) => {
+    const { event, payload } = req.body;
+    
+    if (event === 'meeting.rtms.started') {
+        const {
+            meeting_uuid,
+            rtms_stream_id,
+            server_urls
+        } = payload.object;
+
+        // Store these for reconnection scenarios
+        connectToRTMS(meeting_uuid, rtms_stream_id, server_urls[0]);
+    }
+    res.status(200).send();
+});
+```
+
+##### 2. Establish Connections
+```javascript
+async function connectToRTMS(meetingUuid, streamId, serverUrl) {
+    // 1. First establish signaling connection
+    const signalingSocket = new WebSocket(`${serverUrl}`);
+    
+    signalingSocket.onopen = () => {
+        // Send handshake request
+        signalingSocket.send(JSON.stringify({
+            msg_type: "SIGNALING_HAND_SHAKE_REQ",
+            protocol_version: 1,
+            meeting_uuid: meetingUuid,
+            rtms_stream_id: streamId
+        }));
+    };
+
+    // 2. Handle signaling responses
+    signalingSocket.onmessage = async (event) => {
+        const data = JSON.parse(event.data);
+        
+        if (data.msg_type === "SIGNALING_HAND_SHAKE_RESP" && 
+            data.status === "STATUS_OK") {
+            // Handshake successful, now connect to media
+            await connectToMedia(serverUrl, meetingUuid, streamId);
+        }
+    };
+}
+
+// 3. Connect to media endpoints
+async function connectToMedia(serverUrl, meetingUuid, streamId) {
+    // Connect to all media types
+    const mediaSocket = new WebSocket(`${serverUrl}/all`);
+    
+    // Or connect to specific media types
+    const videoSocket = new WebSocket(`${serverUrl}/video`);
+    const audioSocket = new WebSocket(`${serverUrl}/audio`);
+    const transcriptSocket = new WebSocket(`${serverUrl}/transcript`);
+
+    // Handle media data
+    mediaSocket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        switch(data.msg_type) {
+            case "MEDIA_DATA_VIDEO":
+                handleVideoData(data.content);
+                break;
+            case "MEDIA_DATA_AUDIO":
+                handleAudioData(data.content);
+                break;
+            case "MEDIA_DATA_TRANSCRIPT":
+                handleTranscriptData(data.content);
+                break;
+        }
+    };
+}
+
+// 4. Handle different media types
+function handleVideoData(content) {
+    const { data, timestamp, user_id } = content;
+    // data is base64 encoded H.264 frame
+    // Convert to Uint8Array for processing
+    const videoData = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    // Process video frame...
+}
+
+function handleAudioData(content) {
+    const { data, timestamp, user_id } = content;
+    // data is base64 encoded PCM audio
+    const audioData = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+    // Process audio chunk...
+}
+```
+
+##### 3. Connection States
+Monitor and handle different connection states:
+```javascript
+function setupConnectionStateHandling(socket, type) {
+    socket.onclose = (event) => {
+        console.log(`${type} connection closed:`, event.code, event.reason);
+        // Implement reconnection logic if needed
+    };
+
+    socket.onerror = (error) => {
+        console.error(`${type} connection error:`, error);
+    };
+
+    // Keep-alive for signaling
+    if (type === 'signaling') {
+        setInterval(() => {
+            if (socket.readyState === WebSocket.OPEN) {
+                socket.send(JSON.stringify({
+                    msg_type: "KEEP_ALIVE_REQ",
+                    timestamp: Date.now()
+                }));
+            }
+        }, 30000); // 30 seconds
+    }
+}
+```
+
+##### 4. Session State Updates
+Send session state updates through signaling:
+```javascript
+function updateSessionState(socket, state, reason = null) {
+    if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({
+            msg_type: "SESSION_STATE_UPDATE",
+            state: state, // "STARTED", "PAUSED", "RESUMED", "STOPPED"
+            stop_reason: reason,
+            timestamp: Date.now()
+        }));
+    }
+}
+```
+
+##### 5. Reconnection Handling
+```javascript
+function handleReconnection(meetingUuid, streamId, serverUrl) {
+    // Store connection info
+    localStorage.setItem('rtmsConnection', JSON.stringify({
+        meetingUuid,
+        streamId,
+        serverUrl,
+        lastState: 'STARTED'
+    }));
+
+    // On page load/reconnect
+    const savedConnection = JSON.parse(localStorage.getItem('rtmsConnection'));
+    if (savedConnection) {
+        connectToRTMS(
+            savedConnection.meetingUuid,
+            savedConnection.streamId,
+            savedConnection.serverUrl
+        );
+    }
+}
+```
 
 ## System Architecture
 
