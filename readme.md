@@ -30,20 +30,17 @@ A companion test client is available to help you test this mock server. The clie
 
 ### Installation
 
-#### Conventional Setup
+#### Setup
 ```bash
 # Clone repository
 git clone https://github.com/zoom/rtms-mock-server-sample
-cd mockRTMSserver
+cd rtms-mock-server-sample
 
 # Install dependencies
 npm install
 
-# Create data directory for credentials and media files
-mkdir data
-
-# Configure credentials
-cp config/credentials.example.json data/rtms_credentials.json
+# Start the server
+npm start
 ```
 
 #### Docker Setup
@@ -219,6 +216,104 @@ docker start rtms-mock-server
 2. Start without validation
 3. Stop server during streaming
 4. Verify error messages appear
+
+#### 7. WebSocket Connection Types
+
+##### Media WebSocket Endpoints
+The server provides different WebSocket endpoints for various media types:
+
+1. **All Media** (`/all`)
+   ```json
+   // Video Data
+   {
+     "msg_type": "MEDIA_DATA_VIDEO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_video_frame",
+       "timestamp": 1234567890
+     }
+   }
+
+   // Audio Data
+   {
+     "msg_type": "MEDIA_DATA_AUDIO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_audio_chunk",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+2. **Video Only** (`/video`)
+   - Receives only video frames
+   - Format: H.264 encoded frames in base64
+   - Frame rate: 30fps
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_VIDEO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_video_frame",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+3. **Audio Only** (`/audio`)
+   - Receives only audio chunks
+   - Format: PCM L16 16KHz mono
+   - Chunk size: 20ms
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_AUDIO",
+     "content": {
+       "user_id": 0,
+       "data": "base64_encoded_audio_chunk",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+4. **Transcript** (`/transcript`)
+   - Real-time speech-to-text data
+   ```json
+   {
+     "msg_type": "MEDIA_DATA_TRANSCRIPT",
+     "content": {
+       "user_id": 0,
+       "data": "transcribed text",
+       "timestamp": 1234567890
+     }
+   }
+   ```
+
+##### Testing Different Media Connections
+1. Connect to specific endpoint:
+   ```javascript
+   // Example using browser WebSocket
+   const videoWs = new WebSocket('ws://localhost:9092/video');
+   const audioWs = new WebSocket('ws://localhost:9092/audio');
+   const allWs = new WebSocket('ws://localhost:9092/all');
+   ```
+
+2. Handle media data:
+   ```javascript
+   ws.onmessage = (event) => {
+     const data = JSON.parse(event.data);
+     switch(data.msg_type) {
+       case 'MEDIA_DATA_VIDEO':
+         // Handle video frame
+         break;
+       case 'MEDIA_DATA_AUDIO':
+         // Handle audio chunk
+         break;
+       case 'MEDIA_DATA_TRANSCRIPT':
+         // Handle transcript
+         break;
+     }
+   };
+   ```
 
 ## System Architecture
 
