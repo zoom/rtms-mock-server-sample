@@ -23,7 +23,7 @@ COPY . .
 RUN mkdir -p data
 
 # Expose ports
-EXPOSE 9092 8081 3000
+EXPOSE 9092 8081
 
 # Start the application
 CMD ["node", "main.js"] 
