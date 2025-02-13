@@ -16,11 +16,6 @@ This client:
 - npm
 - RTMS credentials (stored in `data/rtms_credentials.json`)
 
-## Setup
-
-1. Install dependencies:
-
-```
 ## Using ngrok for Webhook Testing
 
 To receive webhooks from the RTMS Mock Server, your client needs to be publicly accessible. ngrok is a useful tool for this:
