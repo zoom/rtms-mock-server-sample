@@ -1,40 +1,35 @@
-# RTMS Mock Server
+# Realtime Media Streams Mock Server
 
-## Overview
-This repo contains a Mock Realtime Media Streaming (RTMS) server that emulates the capabilities of the [Zoom Realtime Media Streaming Server](https://developers.zoom.us/blog/realtime-media-streams/) . This server provides a complete development and testing environment for client-server interactions, including media streaming, signaling, and webhook management.
+> **Confidential under NDA - Do Not Distribute**<br/>
+> The information in this document is confidential and requires an NDA. It is intended only for partners in the Zoom RTMS Beta Developers program. Participation in the RTMS Beta Offering, including access to and use of these RTMS Beta Offering materials, is subject to Zoom’s [Beta Program - Terms of Use](https://www.zoom.com/en/trust/beta-terms-and-conditions/?optimizely_user_id=2a2f4ff424d63a314b7536ade4a8c12d&amp_device_id=5039ff16-4ae8-42dc-bf77-49268ac0d6ff&_ics=1733334737195).
 
-Repository: https://github.com/zoom/rtms-mock-server-sample
+This is a mock server that simulates the WebSocket-based streaming of Zoom's Realtime Media Streams (RTMS). It provides a complete development and testing environment for client-server interactions, including media streaming, signaling, and webhook management.
 
-## Test Client
-A companion test client is available to help you test this mock server. The client implements all the necessary protocols and provides a user interface for testing different streaming scenarios.
+Documentation: [Realtime Media Streams - Beta Developer Documentation](https://drive.google.com/file/d/1UDfgOisarScdSRx0BwuzNU6dkNjaHXsA/view?usp=sharing)
 
-- **Repository:** [RTMS Test Client](https://github.com/zoom/rtms-mock-server-sample/test_client)
-- **Features:**
-  - Webhook endpoint implementation
-  - WebSocket connection handling
-  - Media streaming controls
-  - Incoming real time data logs
- 
-  - Steps to implementing the client can be found [here](https://github.com/zoom/rtms-mock-server-sample/blob/main/test_client/client_readme.md)
+Video guide: [Testing the RTMS mock server](https://success.zoom.us/clips/share/kTCgY9H3TDGyKabbHELfhg)
 
-## Setup and Testing the RTMS Mock Server
+## Sample client
 
-### Prerequisites
+A sample client (Express server) is available at `./client` to help test this mock server. The client implements connection handling and provides a user interface for testing different media formats.
 
-- Option 1 (Conventional Setup):
-  - Node.js (v14+)
-  - FFmpeg
-  - npm
+Sample client features:
 
-- Option 2 (Docker Setup):
-  - Docker
+- Webhook endpoint implementation
+- WebSocket connection handling
+- Media streaming controls
+- Incoming real time data logs
 
-### Installation
+## Installation & setup
 
-#### Setup
+This app requires [FFmpeg](https://github.com/FFmpeg/FFmpeg) and [Node.js version 14]() or higher.
+
+The app can be run locally by cloning and installing packages with npm or on [Docker](https://www.docker.com/).
+
+**npm** <br/>
+To setup with npm, install dependencies and run the app:
+
 ```bash
-# Clone repository
-git clone https://github.com/zoom/rtms-mock-server-sample
 cd rtms-mock-server-sample
 
 # Install dependencies
@@ -44,10 +39,10 @@ npm install
 npm start
 ```
 
-#### Docker Setup
+**Docker** <br/>
+To setup with Docker, run the following:
+
 ```bash
-# Clone repository
-git clone https://github.com/zoom/rtms-mock-server-sample
 cd rtms-mock-server-sample
 
 # Option 1: Using docker-compose (recommended)
@@ -71,23 +66,47 @@ docker logs -f rtms-mock-server
 ```
 
 To stop the container:
+
 ```bash
 docker stop rtms-mock-server
 ```
 
 To restart the container:
+
 ```bash
 docker start rtms-mock-server
 ```
 
-### Testing Flow
+## Using the sample client
 
-#### 1. Initial Setup
-1. Start the server
-2. Open `http://localhost:9092` in your browser
-3. Set up your webhook receiver to handle these payloads:
+Start the server (npm or Docker) and open the mock server at [http://localhost:8081](http://localhost:8081). The sample client at `./client` can now be used to consume media from the mock server.
 
-**URL Validation Webhook Payload:**
+In a new terminal, run the sample client:
+
+```bash
+node client/server.js
+```
+
+This opens up a server at `localhost:8000`. For webhook validation, the client will need to be exposed to the internet with a tunnel, like [ngrok](https://ngrok.com/).
+
+```bash
+ngrok http 8000
+```
+
+The ngrok URL will be used to validate the webhook endpoint. Copy your URL and paste it into the webhook URL field on the mock server (http://localhost:8081). Click validate. In the RTMS server and client you'll see confirmation of the validation.
+
+You can now start a meeting and start streaming media to the client.
+
+Click _Start Meeting_ and provide camera/microphone permissions. The client will start receiving media. Resume, Stop, and Start RTMS to control the media stream.
+
+Media packets are sent to the client every 100ms. The client will log incoming packets to the console.
+
+## Creating your own client
+
+To start, you'll need to create a webhook receiver to handle incoming `meeting.rtms.started` events when streams are available. You'll also need to [validate the webhook URL](https://developers.zoom.us/docs/api/webhooks/#validate-your-webhook-endpoint). You can find the webhook verification token in [rtms_credentials.json](data/rtms_credentials.json).
+
+The mock server will send the following POST requests to your webhook endpoint:
+
 ```json
 {
   "event": "endpoint.url_validation",
@@ -97,7 +116,8 @@ docker start rtms-mock-server
 }
 ```
 
-**Expected URL Validation Response:**
+The webhook endpoint should respond with the following:
+
 ```json
 {
   "plainToken": "abc123",
@@ -105,24 +125,30 @@ docker start rtms-mock-server
 }
 ```
 
+When the webhook is validated and the meeting starts, you'll receive a `meeting.rtms.started` webhook payload.
+
 **Meeting Started Webhook Payload:**
+
 ```json
 {
   "event": "meeting.rtms.started",
   "payload": {
     "operator_id": "user123",
     "object": {
-      "meeting_uuid": "WLhvT3WEBT6Srse3TgWRGz",
-      "rtms_stream_id": "rtms_WL3WEBT6SrTgWRGz_009",
-      "server_urls": ["ws://localhost:9092/"]
+      "meeting_uuid": "uuid",
+      "rtms_stream_id": "stream_id",
+      "server_urls": "server_urls"
     }
   }
 }
 ```
 
-#### 2. WebSocket Message Formats
+#### Handling WebSocket Connections to receive RTMS data
 
-**Handshake Request (Client → Server):**
+Once you receive the server urls in the webhook payload, you need to open a websocket connection with the server url, and send a handshake request in the following format:
+
+**Handshake Request (Client → Mock Server):**
+
 ```json
 {
   "msg_type": "SIGNALING_HAND_SHAKE_REQ",
@@ -134,6 +160,7 @@ docker start rtms-mock-server
 ```
 
 **Note:** The `signature` field should be generated using HMAC-SHA256 with the following pattern:
+
 ```
 signature = HMAC-SHA256(
     key: client_secret,
@@ -141,7 +168,12 @@ signature = HMAC-SHA256(
 )
 ```
 
-**Handshake Response (Server → Client):**
+The `client_secret` and other credentials can be found in `data/rtms_credentials.json`.
+
+**Handshake Response (Mock Server → Client):**
+
+The media urls are returned in the handshake response if the handshake is successful:
+
 ```json
 {
   "msg_type": "SIGNALING_HAND_SHAKE_RESP",
@@ -155,7 +187,10 @@ signature = HMAC-SHA256(
 }
 ```
 
-**Keep-Alive Request (Server → Client):**
+The signaling socket will also send you the following messages:
+
+**Keep-Alive Request (Mock Server → Client):**
+
 ```json
 {
   "msg_type": "KEEP_ALIVE_REQ",
@@ -163,7 +198,8 @@ signature = HMAC-SHA256(
 }
 ```
 
-**Keep-Alive Response (Client → Server):**
+**Keep-Alive Response (Client → Mock Server):**
+
 ```json
 {
   "msg_type": "KEEP_ALIVE_RESP",
@@ -171,7 +207,10 @@ signature = HMAC-SHA256(
 }
 ```
 
+If you miss three consecutive keep-alive requests, the connection will be closed.
+
 **Session State Update:**
+
 ```json
 {
   "msg_type": "SESSION_STATE_UPDATE",
@@ -181,9 +220,36 @@ signature = HMAC-SHA256(
 }
 ```
 
-#### 3. Media WebSokcet Message Formats
+#### Media WebSocket Messages:
+
+When you open a websocket connection wtih the media URLs you need to send the following handshake request:
+
+```json
+{
+  "msg_type": "DATA_HAND_SHAKE_REQ",
+  "protocol_version": 1,
+  "meeting_uuid": "meeting_uuid",
+  "rtms_stream_id": "stream_id",
+  "signature": "hmac_sha256_signature",
+  "payload_encryption": false
+}
+```
+
+Note: The signature is generated using the same method as the signaling handshake.
+
+The mock server will respond with the following message:
+
+```json
+{
+  "msg_type": "DATA_HAND_SHAKE_RESP",
+  "status": "STATUS_OK"
+}
+```
+
+The media websocket will send you the following messages depending on which media type you are subscribed to:
 
 **Video Data Format:**
+
 ```json
 {
   "msg_type": "MEDIA_DATA_VIDEO",
@@ -196,6 +262,7 @@ signature = HMAC-SHA256(
 ```
 
 **Audio Data Format:**
+
 ```json
 {
   "msg_type": "MEDIA_DATA_AUDIO",
@@ -208,6 +275,7 @@ signature = HMAC-SHA256(
 ```
 
 **Transcript Data Format:**
+
 ```json
 {
   "msg_type": "MEDIA_DATA_TRANSCRIPT",
@@ -219,210 +287,12 @@ signature = HMAC-SHA256(
 }
 ```
 
-#### 4. Testing RTMS Controls
-
-##### Stop/Start RTMS (Same Meeting)
-1. Make sure your session is started
-2. Click "Stop RTMS"
-   - Stream stops
-   - WebSocket closes (check Network tab)
-   - "Start RTMS" button enables
-3. Click "Start RTMS"
-   - Your webhook receives same meeting_uuid/rtms_stream_id
-   - Stream resumes with same session
-   - Check webhook logs to verify IDs match
-
-##### Pause/Resume Testing
-1. During active streaming:
-   - Click "Pause RTMS"
-   - Verify stream pauses (video freezes)
-   - Check WebSocket remains connected
-2. Click "Resume RTMS"
-   - Stream should continue
-   - Same WebSocket connection used
-
-##### End Meeting Verification
-1. During any state (streaming/paused/stopped):
-   - Click "End Meeting"
-   - All connections should close
-   - Check webhook receiver stops getting data
-
-#### 5. Logs
-You can see the real time logs in the logs section
-
-#### 6. Common Testing Scenarios
-
-##### Test Reconnection
-1. Start a meeting
-2. Close browser tab
-3. Reopen and click "Start RTMS"
-4. Verify same meeting continues
-
-##### Test Multiple Stops/Starts
-1. Start meeting
-2. Stop RTMS
-3. Start RTMS multiple times
-4. Verify meeting_uuid remains constant
-
-##### Test Error Handling
-1. Enter invalid webhook URL
-2. Start without validation
-3. Stop server during streaming
-4. Verify error messages appear
-
-## System Architecture
-
-### Backend Components
-
-#### 1. Handshake Server (Port 9092)
-- Manages initial WebSocket connections and credential validation
-- Handles signaling protocols for session establishment
-
-
-#### 2. Media Server (Port 8081)
-- Manages real-time media streaming with multiple channels
-- **Stream Types:**
-  - `/audio`: Audio-only stream
-  - `/video`: Video-only stream
-  - `/transcript`: Real-time transcript data
-  - `/all`: Combined streams
-- Handles chunked media delivery and session lifecycle
-
-### File Structure
-```
-mockRTMSserver/
-├── Dockerfile              # Docker configuration
-├── .dockerignore          # Docker ignore file
-├── server/
-│   ├── handlers/
-│   │   ├── mediaHandler.js      # Media streaming logic
-│   │   ├── wsHandler.js         # WebSocket handling
-│   │   ├── signalingHandler.js  # Signaling logic
-│   │   └── webhookHandler.js    # Webhook management
-│   ├── utils/
-│   │   ├── credentialsManager.js # Authentication
-│   │   ├── wsUtils.js           # WebSocket utilities
-│   │   └── mediaUtils.js        # Media processing
-│   ├── config/
-│   │   └── serverConfig.js      # Server configuration
-│   └── setup/
-│       └── serverSetup.js       # Server initialization
-├── public/
-│   ├── js/
-│   │   ├── api.js              # API interactions
-│   │   ├── mediaHandler.js     # Client media handling
-│   │   ├── webSocket.js        # WebSocket client
-│   │   ├── audio-processor.js  # Audio processing
-│   │   └── uiController.js     # UI management
-│   ├── css/
-│   │   └── styles.css          # UI styling
-│   └── index.html              # Main interface
-├── data/                       # Credentials & media storage
-├── package.json               # Dependencies
-└── main.js                    # Server entry point
-```
-
-## Data Formats and Protocols
-
-### 2. WebSocket Message Formats
-
-#### Handshake Request
-```json
-{
-  "msg_type": "SIGNALING_HAND_SHAKE_REQ",
-  "protocol_version": 1,
-  "meeting_uuid": "string",
-  "rtms_stream_id": "string",
-  "signature": "string"
-}
-```
-
-#### Media Data Format
-```json
-{
-  "msg_type": "MEDIA_DATA_VIDEO|MEDIA_DATA_AUDIO|MEDIA_DATA_TRANSCRIPT",
-  "content": {
-    "user_id": "number",
-    "data": "base64string",
-    "timestamp": "number"
-  }
-}
-```
-
-#### Session State Updates
-```json
-{
-  "msg_type": "SESSION_STATE_UPDATE",
-  "session_id": "string",
-  "state": "STARTED|PAUSED|RESUMED|STOPPED",
-  "stop_reason": "string",
-  "timestamp": "number"
-}
-```
-
-## Media Handling
-
-### 1. Supported Media Formats
-
-#### Audio
-- **Input Formats:** .m4a, .mp3
-- **Processing:**
-  - Converted to PCM L16 16KHz mono
-  - Chunk size: 4KB
-  - Streaming interval: 100ms
-
-#### Video
-- **Input Formats:** .mp4, .webm
-- **Output Options:**
-  - Low FPS: JPEG frames (5 FPS)
-  - High FPS: H.264 stream (30 FPS)
-- **Resolutions:** SD (480p), HD (720p), FHD (1080p), QHD (1440p)
-
-### 2. Media Processing Flow
-1. Client captures media (audio/video)
-2. Data is converted to appropriate format
-3. Chunked into specified sizes
-4. Base64 encoded for transmission
-5. Sent via WebSocket in defined intervals
-6. Server broadcasts to appropriate subscribers
-
-## Frontend Implementation
-
-### UI Components
-
-#### Control Buttons
-- **Webhook Controls**
-  - Webhook URL input field
-  - Validate button with status indicator
-
-- **Meeting Controls**
-  - Start Meeting 
-  - Pause RTMS 
-  - Resume RTMS 
-  - Stop RTMS 
-  - Start RTMS 
-  - End Meeting 
-
-#### Sidebar
-- **Tab Navigation**
-  - Transcripts tab
-  - Logs tab
-
-- **Display Areas**
-  - Transcript container
-    - Real-time speech-to-text display
-    - Timestamp for each entry
-  - System logs container
-    - Signaling events
-    - Connection status
-    - Media stream status
-    - Error messages
-
 ## License
 
-See [LICENSE](https://github.com/zoom/rtms-mock-server-sample/blob/main/license.md) file for details.
+See LICENSE.md file for details.
 
 ## Support
 
-For issues and feature requests, please create an issue in the [GitHub repository](https://github.com/zoom/rtms-mock-server-sample).
+For questions or help needed, join us on the [Realtime Media Streams category](https://devforum.zoom.us/c/rtms) on the Zoom Developer Forum. If you need access to this, please reach out in your Zoom Team Chat channel.
 
+Developer Forum thread: [Realtime Media Streams Mock Server](https://devforum.zoom.us/t/realtime-media-streams-mock-server)
