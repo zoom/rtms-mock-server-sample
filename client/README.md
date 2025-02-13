@@ -14,7 +14,6 @@ This client:
 
 - Node.js (v14 or higher)
 - npm
-- A Zoom account with RTMS enabled
 - RTMS credentials (stored in `data/rtms_credentials.json`)
 
 ## Setup
