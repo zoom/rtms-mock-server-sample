@@ -8,8 +8,8 @@ const PORT = 8000;
 // Middleware to parse incoming JSON payloads
 app.use(express.json());
 
-// Configuration - Replace with actual values
-const ZOOM_SECRET_TOKEN = 'DyBoLm8OZoJT2Pi3-kY2px'; // Webhook secret for validation
+// Configuration - Replace with actual values, test values can be found in data/rtms_credentials.json
+const ZOOM_SECRET_TOKEN = 'DyBoLm8OZoJT2Pi3-kY2px'; // Webhook secret for validation 
 const CLIENT_SECRET = 'YZnKVUufg7N18Oej6gHHqNWc7CG5jQ6N'; // Secret key for generating HMAC signatures
 
 // Track active connections
@@ -37,13 +37,23 @@ app.post('/', (req, res) => {
 
     // Handle Zoom Webhook validation
     if (event === 'endpoint.url_validation' && payload?.plainToken) {
+        
+        console.log('Received URL validation request:', {
+            event,
+            plainToken: payload.plainToken
+        });
+
         const hashForValidate = crypto.createHmac('sha256', ZOOM_SECRET_TOKEN)
             .update(payload.plainToken)
             .digest('hex');
-        return res.json({
+            
+        const response = {
             plainToken: payload.plainToken,
             encryptedToken: hashForValidate
-        });
+        };
+        
+        console.log('Sending URL validation response:', response);
+        return res.json(response);
     }
 
     // Handle RTMS start event
