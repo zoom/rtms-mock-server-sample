@@ -237,58 +237,187 @@ class SignalingHandler {
         const { state, rtms_session_id } = message;
         ws.sessionState = state;
 
-        // If the state is "STOPPED", use a random stop reason
-        if (state === "STOPPED") {
-            const stopReason = this.getRandomStopReason();
-            this.emitSignalingLog('Info', 'Session State Update - Stop', {
-                state,
-                rtms_session_id,
-                stop_reason: stopReason
-            });
-            
-            // Send stream termination message with random reason
-            if (ws.readyState === 1) { // WebSocket.OPEN
-                ws.send(JSON.stringify({
-                    msg_type: "STREAM_STATE_UPDATE",
-                    state: "TERMINATED",
-                    reason: stopReason,
+        let uiState = {};
+        let broadcastMessage = null;
+
+        // Log incoming state update
+        this.emitSignalingLog('Debug', 'Received Session State Update', {
+            incoming_state: state,
+            rtms_session_id,
+            timestamp: Date.now()
+        });
+
+        switch(state) {
+            case "RESUMED":
+                uiState = {
+                    resumeBtn: { disabled: true },
+                    pauseBtn: { disabled: false },
+                    sendBtn: { disabled: true },
+                    stopBtn: { disabled: false },
+                    startRtmsBtn: { disabled: true },
+                    endBtn: { disabled: false }
+                };
+
+                // Log UI state for RESUMED
+                this.emitSignalingLog('Debug', 'Creating RESUMED UI State', {
+                    ui_state: uiState,
                     timestamp: Date.now()
-                }));
+                });
 
-                // Close the current WebSocket connection to allow for a new session
-                ws.close();
-                global.signalingWebsocket = null;
+                broadcastMessage = {
+                    msg_type: "SESSION_STATE_UPDATE",
+                    rtms_session_id: rtms_session_id,
+                    state: "RESUMED",
+                    ui_state: uiState,
+                    timestamp: Date.now()
+                };
 
-                // Don't close the media server, just reset its state
-                if (global.mediaServer) {
-                    global.mediaServer.clients.forEach(client => {
-                        if (client.readyState === 1) { // WebSocket.OPEN
-                            client.close();
-                        }
+                // Log direct message send
+                if (ws.readyState === 1) {
+                    this.emitSignalingLog('Debug', 'Sending Direct RESUMED Message', {
+                        message: broadcastMessage,
+                        timestamp: Date.now()
                     });
+                    ws.send(JSON.stringify({
+                        ...broadcastMessage,
+                        is_direct: true
+                    }));
                 }
-            }
-        } else {
-            this.emitSignalingLog('Info', 'Session State Update', {
-                state,
-                rtms_session_id
-            });
+
+                // Log broadcast message send
+                if (global.signalingWebsocket && global.signalingWebsocket.readyState === 1) {
+                    this.emitSignalingLog('Debug', 'Broadcasting RESUMED Message', {
+                        message: broadcastMessage,
+                        timestamp: Date.now()
+                    });
+                    global.signalingWebsocket.send(JSON.stringify({
+                        ...broadcastMessage,
+                        is_broadcast: true
+                    }));
+                }
+
+                break;
+
+            case "PAUSED":
+                uiState = {
+                    resumeBtn: { disabled: false },
+                    pauseBtn: { disabled: true },
+                    sendBtn: { disabled: true },
+                    stopBtn: { disabled: false },
+                    startRtmsBtn: { disabled: true },
+                    endBtn: { disabled: false }
+                };
+
+                broadcastMessage = {
+                    msg_type: "SESSION_STATE_UPDATE",
+                    rtms_session_id: rtms_session_id,
+                    state: "PAUSED",
+                    ui_state: uiState,
+                    timestamp: Date.now()
+                };
+
+                this.emitSignalingLog('Info', 'Session State Update - Pause', {
+                    state,
+                    rtms_session_id,
+                    ui_state: uiState
+                });
+
+                // Send to current client and broadcast
+                if (ws.readyState === 1) {
+                    ws.send(JSON.stringify(broadcastMessage));
+                }
+                
+                if (global.signalingWebsocket && global.signalingWebsocket.readyState === 1) {
+                    global.signalingWebsocket.send(JSON.stringify(broadcastMessage));
+                }
+                break;
+
+            case "STOPPED":
+                const stopReason = this.getRandomStopReason();
+                uiState = {
+                    resumeBtn: { disabled: true },
+                    pauseBtn: { disabled: true },
+                    sendBtn: { disabled: true },
+                    stopBtn: { disabled: true },
+                    startRtmsBtn: { disabled: false },
+                    endBtn: { disabled: true }
+                };
+                
+                this.emitSignalingLog('Info', 'Session State Update - Stop', {
+                    state,
+                    rtms_session_id,
+                    stop_reason: stopReason,
+                    ui_state: uiState
+                });
+
+                // Send stream termination message
+                if (ws.readyState === 1) {
+                    ws.send(JSON.stringify({
+                        msg_type: "STREAM_STATE_UPDATE",
+                        state: "TERMINATED",
+                        reason: stopReason,
+                        timestamp: Date.now()
+                    }));
+                }
+
+                broadcastMessage = {
+                    msg_type: "SESSION_STATE_UPDATE",
+                    rtms_session_id: rtms_session_id,
+                    state: "STOPPED",
+                    ui_state: uiState,
+                    timestamp: Date.now()
+                };
+
+                // Send immediately to ensure state is updated
+                if (ws.readyState === 1) {
+                    ws.send(JSON.stringify(broadcastMessage));
+                }
+
+                // Also broadcast to all connected clients
+                if (global.signalingWebsocket && global.signalingWebsocket.readyState === 1) {
+                    global.signalingWebsocket.send(JSON.stringify(broadcastMessage));
+                }
+
+                break;
         }
-        
-        this.broadcastSessionState(rtms_session_id, state);
+
+        // Log final state
+        this.emitSignalingLog('Debug', 'Final Session State', {
+            state,
+            rtms_session_id,
+            ui_state: uiState,
+            final_message: broadcastMessage,
+            timestamp: Date.now()
+        });
+
+        // Ensure the state is properly stored
+        if (global.RTMSState) {
+            global.RTMSState.sessionState = state;
+        }
     }
 
-    static broadcastSessionState(sessionId, state) {
-        if (!global.signalingWebsocket) return;
+    static broadcastSessionState(sessionId, state, uiState) {
+        if (!global.signalingWebsocket || global.signalingWebsocket.readyState !== 1) {
+            this.emitSignalingLog('Warning', 'Cannot broadcast state - no active connection');
+            return;
+        }
 
         const stateMessage = {
             msg_type: "SESSION_STATE_UPDATE",
             rtms_session_id: sessionId,
             state: state,
+            ui_state: uiState,
             timestamp: Date.now()
         };
 
-        global.signalingWebsocket.send(JSON.stringify(stateMessage));
+        this.emitSignalingLog('Debug', 'Broadcasting State Update', stateMessage);
+        
+        // Send with slight delay to ensure proper order
+        setTimeout(() => {
+            if (global.signalingWebsocket?.readyState === 1) {
+                global.signalingWebsocket.send(JSON.stringify(stateMessage));
+            }
+        }, 50);
     }
 
     static handleKeepAliveResponse(ws, message) {

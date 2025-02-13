@@ -77,40 +77,76 @@ class UIController {
 
     static handleResume() {
         if (!RTMSState.mediaSocket || RTMSState.sessionState === CONFIG.STATES.STOPPED) {
+            console.log("Cannot resume: session is stopped or no media socket");
             alert('Session is stopped. Please start a new session.');
             return;
         }
 
         try {
             console.log("Resuming session...");
+            console.log("Current state:", RTMSState.sessionState);
+            
             RTMSState.sessionState = CONFIG.STATES.RESUMED;
             RTMSState.isStreamingEnabled = true;
 
+            // Log current button states
+            console.log("Button states before resume:", {
+                pause: document.getElementById('pauseBtn').disabled,
+                resume: document.getElementById('resumeBtn').disabled,
+                stop: document.getElementById('stopBtn').disabled,
+                startRtms: document.getElementById('startRtmsBtn').disabled,
+                send: document.getElementById('sendBtn').disabled,
+                end: document.getElementById('endBtn').disabled
+            });
+
             // Resume media recorders
             if (RTMSState.videoRecorder?.state === 'paused') {
+                console.log("Resuming video recorder");
                 RTMSState.videoRecorder.resume();
             }
             if (RTMSState.audioRecorder?.state === 'paused') {
+                console.log("Resuming audio recorder");
                 RTMSState.audioRecorder.resume();
             }
 
             // Resume speech recognition
             if (RTMSState.recognition) {
-                RTMSState.recognition.start();
+                try {
+                    console.log("Attempting to start speech recognition");
+                    RTMSState.recognition.start();
+                } catch (error) {
+                    console.log("Speech recognition already started:", error);
+                }
             }
 
             // Enable media tracks
+            console.log("Enabling media tracks");
             MediaHandler.toggleMediaTracks(true);
             
+            // Send state update to server
+            console.log("Sending RESUMED state update to server");
             WebSocketHandler.sendSessionStateUpdate(CONFIG.STATES.RESUMED, "ACTION_BY_USER");
             
-            document.getElementById('pauseBtn').disabled = false;
-            document.getElementById('resumeBtn').disabled = true;
-            // Ensure end button stays enabled
-            document.getElementById('endBtn').disabled = false;
+            // Update UI immediately
+            console.log("Updating UI for RESUMED state");
+            this.updateUIForState(CONFIG.STATES.RESUMED);
+
+            // Log final button states
+            console.log("Button states after resume:", {
+                pause: document.getElementById('pauseBtn').disabled,
+                resume: document.getElementById('resumeBtn').disabled,
+                stop: document.getElementById('stopBtn').disabled,
+                startRtms: document.getElementById('startRtmsBtn').disabled,
+                send: document.getElementById('sendBtn').disabled,
+                end: document.getElementById('endBtn').disabled
+            });
 
         } catch (error) {
             console.error("Error resuming session:", error);
+            console.log("Error details:", {
+                error: error.message,
+                stack: error.stack
+            });
         }
     }
 
@@ -351,6 +387,83 @@ class UIController {
     static storeMeetingId(meetingId) {
         window.currentMeetingId = meetingId;
         console.log("Stored meeting ID:", meetingId);
+    }
+
+    static updateUIForState(state) {
+        console.log("Updating UI for state:", state);
+        console.log("Current button states:", {
+            pause: document.getElementById('pauseBtn').disabled,
+            resume: document.getElementById('resumeBtn').disabled,
+            stop: document.getElementById('stopBtn').disabled,
+            startRtms: document.getElementById('startRtmsBtn').disabled,
+            send: document.getElementById('sendBtn').disabled,
+            end: document.getElementById('endBtn').disabled
+        });
+
+        switch(state) {
+            case CONFIG.STATES.RESUMED:
+                console.log("Setting UI for RESUMED state");
+                document.getElementById('pauseBtn').disabled = false;
+                document.getElementById('resumeBtn').disabled = true;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('startRtmsBtn').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('endBtn').disabled = false;
+                break;
+            case CONFIG.STATES.PAUSED:
+                document.getElementById('pauseBtn').disabled = true;
+                document.getElementById('resumeBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = false;
+                document.getElementById('startRtmsBtn').disabled = true;
+                document.getElementById('sendBtn').disabled = true;
+                document.getElementById('endBtn').disabled = false;
+                break;
+            // ... other states ...
+        }
+
+        console.log("Updated button states:", {
+            pause: document.getElementById('pauseBtn').disabled,
+            resume: document.getElementById('resumeBtn').disabled,
+            stop: document.getElementById('stopBtn').disabled,
+            startRtms: document.getElementById('startRtmsBtn').disabled,
+            send: document.getElementById('sendBtn').disabled,
+            end: document.getElementById('endBtn').disabled
+        });
+    }
+
+    // Add this method to handle incoming state updates
+    static handleStateUpdate(message) {
+        console.log("Received state update message:", message);
+        
+        if (message.msg_type === "SESSION_STATE_UPDATE" || message.msg_type === "UI_STATE_UPDATE") {
+            console.log("Processing state update:", {
+                type: message.msg_type,
+                state: message.state,
+                ui_state: message.ui_state
+            });
+
+            if (message.ui_state) {
+                Object.entries(message.ui_state).forEach(([buttonId, state]) => {
+                    const button = document.getElementById(buttonId);
+                    if (button) {
+                        console.log(`Updating button ${buttonId}:`, {
+                            before: button.disabled,
+                            after: state.disabled
+                        });
+                        button.disabled = state.disabled;
+                    } else {
+                        console.log(`Button ${buttonId} not found`);
+                    }
+                });
+            }
+            
+            // Update global state
+            console.log("Updating global state:", {
+                before: RTMSState.sessionState,
+                after: message.state
+            });
+            RTMSState.sessionState = message.state;
+        }
     }
 }
 
