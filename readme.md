@@ -15,7 +15,7 @@ A companion test client is available to help you test this mock server. The clie
   - Media streaming controls
   - Incoming real time data logs
  
-  - Steps to implementing the client can be found [here] (https://github.com/zoom/rtms-mock-server-sample/blob/main/test_client/client_readme.md)
+  - Steps to implementing the client can be found [here](https://github.com/zoom/rtms-mock-server-sample/blob/main/test_client/client_readme.md)
 
 ## Setup and Testing the RTMS Mock Server
 
