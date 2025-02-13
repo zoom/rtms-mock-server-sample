@@ -9,11 +9,12 @@ Documentation: [Realtime Media Streams - Beta Developer Documentation](https://d
 
 Video guide: [Testing the RTMS mock server](https://success.zoom.us/clips/share/kTCgY9H3TDGyKabbHELfhg)
 
-## Test client
 
-A companion test client is available at [./client.js](https://github.com/zoom/rtms-mock-server-sample/blob/main/client.js) to help test this mock server. The client implements all necessary protocols and provides a user interface for testing different streaming scenarios.
+## Sample client
 
-Test client features: 
+A sample client (Express server) is available at `./client.js` to help test this mock server. The client implements connection handling and provides a user interface for testing different media formats.
+
+Sample client features: 
 - Webhook endpoint implementation
 - WebSocket connection handling
 - Media streaming controls
@@ -25,9 +26,99 @@ This app requires [FFmpeg](https://github.com/FFmpeg/FFmpeg) and [Node.js versio
 
 The app can be run locally by cloning and installing packages with npm or on [Docker](https://www.docker.com/).
 
+**npm** <br/>
+To setup with npm, install dependencies and run the app:
+```bash
+cd rtms-mock-server-sample
+
+# Install dependencies
+npm install
+
+# Start the server
+npm start
+```
+
+**Docker** <br/>
+To setup with Docker, run the following:
+```bash
+cd rtms-mock-server-sample
+
+# Option 1: Using docker-compose (recommended)
+docker-compose up -d
+
+# Option 2: Manual docker commands
+
+# Build Docker image
+docker build -t rtms-mock-server .
+
+# Run the container
+docker run -d \
+  -p 9092:9092 \
+  -p 8081:8081 \
+  -v $(pwd)/data:/app/data \
+  --name rtms-mock-server \
+  rtms-mock-server
+
+# View logs
+docker logs -f rtms-mock-server
+```
+
+To stop the container:
+```bash
+docker stop rtms-mock-server
+```
+
+To restart the container:
+```bash
+docker start rtms-mock-server
+```
 
 ## Usage 
 
-## Contributing
+Start the server (npm or Docker) and open the mock server at [http://localhost:8081](http://localhost:8081). 
+
+The sample client at `./client.js` can now be used to consume media from the mock server.
+
+To start, you'll need to create a webhook receiver to handle incoming `meeting.rtms.started` events when streams are available. You'll also need to validate the webhook URL. 
+
+The sample client implements the following, but your own implementation may vary. For example: 
+
+Setup a webhook receiver (example using Express):
+
+```javascript
+app.post('/webhook', (req, res) => {
+ const { event, payload } = req.body;
+ 
+ // Handle URL validation
+ if (event === 'endpoint.url_validation') {
+   const { plainToken } = payload;
+   const encryptedToken = crypto
+     .createHmac('sha256', 'your_webhook_token')
+     .update(plainToken)
+     .digest('hex');
+     
+   return res.json({
+     plainToken,
+     encryptedToken
+   });
+ }
+ 
+ // Handle meeting start events
+ if (event === 'meeting.rtms.started') {
+   console.log('Meeting UUID:', payload.object.meeting_uuid);
+   console.log('RTMS Stream ID:', payload.object.rtms_stream_id);
+   console.log('Server URLs:', payload.object.server_urls);
+ }
+ 
+ res.status(200).send();
+});
+```
 
 
+
+
+## Support 
+
+For questions or help needed, join us on the [Realtime Media Streams category](https://devforum.zoom.us/c/rtms) on the Zoom Developer Forum. If you need access to this, please reach out in your Zoom Team Chat channel.
+
+Developer Forum thread: [Realtime Media Streams Mock Server](https://devforum.zoom.us/t/realtime-media-streams-mock-server)
