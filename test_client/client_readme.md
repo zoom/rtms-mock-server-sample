@@ -22,6 +22,23 @@ This client:
 1. Install dependencies:
 ```
 
+## Using ngrok for Webhook Testing
+
+To receive webhooks from the RTMS Mock Server, your client needs to be publicly accessible. ngrok is a useful tool for this:
+
+1. Install ngrok from [https://ngrok.com/download](https://ngrok.com/download)
+
+2. Start ngrok on port 8000:
+```bash
+ngrok http 8000
+```
+
+3. Copy the generated HTTPS URL (e.g., `https://abc123.ngrok.io`)
+
+4. Use this URL as your webhook endpoint in the RTMS Mock Server UI
+
+Note: The ngrok URL changes each time you restart ngrok unless you have a paid account.
+
 ## How It Works
 
 1. The client starts an Express server on port 8000 to receive Zoom webhooks
