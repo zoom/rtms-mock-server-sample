@@ -12,7 +12,7 @@ Video guide: [Testing the RTMS mock server](https://success.zoom.us/clips/share/
 
 ## Sample client
 
-A sample client (Express server) is available at `./client.js` to help test this mock server. The client implements connection handling and provides a user interface for testing different media formats.
+A sample client (Express server) is available at `./client` to help test this mock server. The client implements connection handling and provides a user interface for testing different media formats.
 
 Sample client features: 
 - Webhook endpoint implementation
@@ -73,48 +73,40 @@ To restart the container:
 docker start rtms-mock-server
 ```
 
-## Usage 
+## Using the sample client
 
-Start the server (npm or Docker) and open the mock server at [http://localhost:8081](http://localhost:8081). 
+Start the server (npm or Docker) and open the mock server at [http://localhost:8081](http://localhost:8081). The sample client at `./client` can now be used to consume media from the mock server.
 
-The sample client at `./client.js` can now be used to consume media from the mock server.
+In a new terminal, run the sample client:
 
-To start, you'll need to create a webhook receiver to handle incoming `meeting.rtms.started` events when streams are available. You'll also need to validate the webhook URL. 
-
-The sample client implements the following, but your own implementation may vary. For example: 
-
-Setup a webhook receiver (example using Express):
-
-```javascript
-app.post('/webhook', (req, res) => {
- const { event, payload } = req.body;
- 
- // Handle URL validation
- if (event === 'endpoint.url_validation') {
-   const { plainToken } = payload;
-   const encryptedToken = crypto
-     .createHmac('sha256', 'your_webhook_token')
-     .update(plainToken)
-     .digest('hex');
-     
-   return res.json({
-     plainToken,
-     encryptedToken
-   });
- }
- 
- // Handle meeting start events
- if (event === 'meeting.rtms.started') {
-   console.log('Meeting UUID:', payload.object.meeting_uuid);
-   console.log('RTMS Stream ID:', payload.object.rtms_stream_id);
-   console.log('Server URLs:', payload.object.server_urls);
- }
- 
- res.status(200).send();
-});
+```bash
+node client/server.js
 ```
 
+This opens up a server at `localhost:8000`. For webhook validation, the client will need to be exposed to the internet with a tunnel, like [ngrok](https://ngrok.com/).
 
+```bash
+ngrok http 8000
+```
+
+The ngrok URL will be used to validate the webhook endpoint. Copy your URL and paste it into the webhook URL field on the mock server (http://localhost:8081). Click validate. In the RTMS server and client you'll see confirmation of the validation. 
+
+You can now start a meeting and start streaming media to the client.  
+
+Click *Start Meeting* and provide camera/microphone permissions. The client will start receiving media. Resume, Stop, and Start RTMS to control the media stream.
+
+Media packets are sent to the client every 100ms. The client will log incoming packets to the console.
+
+## Creating your own client
+
+
+To start, you'll need to create a webhook receiver to handle incoming `meeting.rtms.started` events when streams are available. You'll also need to validate the webhook URL.
+
+[...]
+
+## License
+
+See LICENSE.md file for details.
 
 
 ## Support 
