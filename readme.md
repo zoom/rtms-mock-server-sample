@@ -136,8 +136,8 @@ docker start rtms-mock-server
 **Note:** The `signature` field should be generated using HMAC-SHA256 with the following pattern:
 ```
 signature = HMAC-SHA256(
-    key: your_webhook_token,
-    message: meeting_uuid + rtms_stream_id
+    key: client_secret,
+    message: client_id + meeting_uuid + rtms_stream_id
 )
 ```
 
