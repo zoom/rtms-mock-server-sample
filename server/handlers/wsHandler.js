@@ -31,14 +31,14 @@ class WSHandler {
         // Setup periodic connection check
         setInterval(() => {
             wss.clients.forEach(ws => {
-                if (ws.missedKeepAlives >= 3) {
-                    console.log('Client missed too many keep-alives, terminating connection');
-                    ws.terminate();
-                    return;
-                }
-
                 if (!ws.isAlive) {
                     ws.missedKeepAlives = (ws.missedKeepAlives || 0) + 1;
+                    
+                    // Terminate connection after 3 missed keep-alives (15 seconds)
+                    if (ws.missedKeepAlives >= 3) {
+                        console.log("Terminating connection due to missed keep-alives");
+                        return ws.terminate();
+                    }
                 }
 
                 ws.isAlive = false;

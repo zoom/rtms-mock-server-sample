@@ -122,6 +122,12 @@ function connectToRTMSWebSocket(clientId, meetingUuid, streamId, serverUrl) {
                     activeConnections.delete(connectionId);
                 }
                 break;
+            case "KEEP_ALIVE_REQ":
+                ws.send(JSON.stringify({
+                    msg_type: "KEEP_ALIVE_RESP",
+                    timestamp: Date.now()
+                }));
+                break;
         }
     });
 

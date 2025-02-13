@@ -422,7 +422,7 @@ class SignalingHandler {
 
     static handleKeepAliveResponse(ws, message) {
         ws.isAlive = true;
-        this.emitSignalingLog('Info', 'Keep-alive response received');
+        ws.lastKeepAliveResponse = Date.now();
     }
 
     static emitSignalingLog(status, event, details = null) {
