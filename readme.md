@@ -8,7 +8,7 @@ Repository: https://github.com/zoom/rtms-mock-server-sample
 ## Test Client
 A companion test client is available to help you test this mock server. The client implements all the necessary protocols and provides a user interface for testing different streaming scenarios.
 
-- **Repository:** [RTMS Test Client](https://github.com/zoom/rtms-mock-server-sample/blob/main/client.js)
+- **Repository:** [RTMS Test Client](https://github.com/zoom/rtms-mock-server-sample/test_client)
 - **Features:**
   - Webhook endpoint implementation
   - WebSocket connection handling
