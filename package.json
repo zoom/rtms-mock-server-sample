@@ -2,6 +2,14 @@
   "name": "rtms-mock-server",
   "version": "1.0.0",
   "description": "RTMS Mock Server",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zoom/rtms-mock-server-sample.git"
+  },
+  "bugs": {
+    "url": "https://github.com/zoom/rtms-mock-server-sample/issues"
+  },
+  "homepage": "https://github.com/zoom/rtms-mock-server-sample#readme",
   "main": "main.js",
   "scripts": {
     "start": "node main.js"

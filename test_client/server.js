@@ -9,8 +9,8 @@ const PORT = 8000;
 app.use(express.json());
 
 // Configuration - Replace with actual values, test values can be found in data/rtms_credentials.json
-const ZOOM_SECRET_TOKEN = ''; // Webhook secret for validation 
-const CLIENT_SECRET = ''; // Secret key for generating HMAC signatures
+const ZOOM_SECRET_TOKEN = 'DyBoLm8OZoJT2Pi3-kY2px'; // Webhook secret for validation 
+const CLIENT_SECRET = 'YZnKVUufg7N18Oej6gHHqNWc7CG5jQ6N'; // Secret key for generating HMAC signatures
 
 // Track active connections
 const activeConnections = new Map();
@@ -58,6 +58,8 @@ app.post('/', (req, res) => {
 
     // Handle RTMS start event
     if (payload?.event === 'meeting.rtms.started' && payload?.payload?.object) {
+        console.log('Received RTMS start event. Full request body:', JSON.stringify(req.body, null, 2));
+        
         const {
             clientId,
             payload: {
@@ -66,6 +68,13 @@ app.post('/', (req, res) => {
                 }
             }
         } = req.body;
+
+        console.log('Extracted RTMS details:', {
+            clientId,
+            meeting_uuid,
+            rtms_stream_id,
+            server_urls
+        });
 
         connectToRTMSWebSocket(clientId, meeting_uuid, rtms_stream_id, server_urls);
     }
