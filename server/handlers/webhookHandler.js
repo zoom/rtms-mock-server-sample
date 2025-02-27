@@ -7,6 +7,36 @@ const https = require('https');
 const fetch = require('node-fetch');
 const CredentialsManager = require('../utils/credentialsManager');
 
+// Load credentials for client ID and other values
+const credentials = CredentialsManager.loadCredentials();
+
+// Common webhook headers
+const WEBHOOK_HEADERS = {
+    'User-Agent': 'Zoom Marketplace/1.0a',
+    'Content-Type': 'application/json; charset=utf-8',
+    'clientid': credentials.auth_credentials[0].client_id,
+    'authorization': `Bearer ${credentials.auth_credentials[0].client_secret}`,
+};
+
+// Function to generate Zoom webhook headers with dynamic values
+const generateWebhookHeaders = (body) => {
+    const timestamp = Date.now();
+    const message = `v0:${timestamp}:${JSON.stringify(body)}`;
+    const hashForValidate = crypto
+        .createHmac('sha256', credentials.webhookToken)
+        .update(message)
+        .digest('hex');
+    const signature = `v0=${hashForValidate}`;
+
+    return {
+        ...WEBHOOK_HEADERS,
+        'x-zm-signature': signature,
+        'x-zm-request-timestamp': timestamp,
+        'x-zm-trackingid': crypto.randomBytes(16).toString('hex'),
+        'Content-Length': Buffer.byteLength(JSON.stringify(body))
+    };
+};
+
 const router = express.Router();
 
 // Add middleware
@@ -22,23 +52,22 @@ const httpsAgent = new https.Agent({
 router.post("/validate-webhook", async (req, res) => {
     console.log("Received validation request for webhook URL:", req.body.webhookUrl);
     const { webhookUrl } = req.body;
-    const credentials = CredentialsManager.loadCredentials();
     const plainToken = crypto.randomBytes(16).toString("base64");
+
+    const validationBody = {
+        event: "endpoint.url_validation",
+        payload: {
+            plainToken: plainToken,
+        },
+        event_ts: Date.now(),
+    };
 
     try {
         console.log("Attempting to validate webhook at URL:", webhookUrl);
         const validationResponse = await fetch(webhookUrl, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                event: "endpoint.url_validation",
-                payload: {
-                    plainToken: plainToken,
-                },
-                event_ts: Date.now(),
-            }),
+            headers: generateWebhookHeaders(validationBody),
+            body: JSON.stringify(validationBody),
             agent: httpsAgent,
             timeout: 5000
         });
@@ -91,34 +120,21 @@ router.post("/send-webhook", async (req, res) => {
             const meetingInfo = getRandomEntry(credentials.stream_meeting_info);
 
             payload = {
-                eventType: "meeting.rtms.started",
-                eventTime: Date.now(),
-                clientId: credential.client_id,
-                userId: credential.userID,
-                accountId: credential.accountId,
+                event: "meeting.rtms.started",
+                event_ts: Date.now(),
                 payload: {
-                    event: "meeting.rtms.started",
-                    event_ts: Date.now(),
-                    payload: {
-                        operator_id: credential.userID,
-                        object: {
-                            meeting_uuid: meetingInfo.meeting_uuid,
-                            rtms_stream_id: meetingInfo.rtms_stream_id,
-                            server_urls: "ws://0.0.0.0:9092",
-                        },
-                    },
-                },
+                    meeting_uuid: meetingInfo.meeting_uuid,
+                    rtms_stream_id: meetingInfo.rtms_stream_id,
+                    server_urls: "ws://0.0.0.0:9092"
+                }
             };
         } else {
-            // Use existing payload for RTMS restart
             payload = existingPayload;
         }
 
         const response = await fetch(webhookUrl, {
             method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
+            headers: generateWebhookHeaders(payload),
             body: JSON.stringify(payload),
             agent: httpsAgent,
             timeout: 5000

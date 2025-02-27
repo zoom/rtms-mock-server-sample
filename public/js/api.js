@@ -70,11 +70,11 @@ class APIHandler {
     }
 
     static async handleWebhookResponse(payload, webhookUrl) {
-        if (payload.success && payload.sent?.payload?.payload?.object?.server_urls) {
+        if (payload.success && payload.sent?.payload?.server_urls) {
             UIController.addSignalingLog('Meeting Start Success', {
-                server_urls: payload.sent.payload.payload.object.server_urls
+                server_urls: payload.sent.payload.server_urls
             });
-            await MediaHandler.startMediaStream(payload.sent.payload.payload.object.server_urls);
+            await MediaHandler.startMediaStream(payload.sent.payload.server_urls);
         } else {
             UIController.addSignalingLog('Meeting Start Failed', payload);
             document.getElementById("sendBtn").disabled = true;
