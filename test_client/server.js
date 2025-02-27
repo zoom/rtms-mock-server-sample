@@ -10,7 +10,8 @@ app.use(express.json());
 
 // Configuration - Replace with actual values, test values can be found in data/rtms_credentials.json
 const ZOOM_SECRET_TOKEN = 'DyBoLm8OZoJT2Pi3-kY2px'; // Webhook secret for validation 
-const CLIENT_SECRET = 'YZnKVUufg7N18Oej6gHHqNWc7CG5jQ6N'; // Secret key for generating HMAC signatures
+const CLIENT_ID = 'XkWfgHHASGOQC9b95AkIxB'; // Client ID for RTMS application, visit marketplace.zoom.us to get this
+const CLIENT_SECRET = 'YZnKVUufg7N18Oej6gHHqNWc7CG5jQ6N'; // Secret key for generating HMAC signatures, visit marketplace.zoom to get this
 
 // Track active connections
 const activeConnections = new Map();
@@ -33,12 +34,17 @@ function generateSignature(clientId, meetingUuid, streamId, secret) {
  * Webhook endpoint to receive events from Zoom
  */
 app.post('/', (req, res) => {
+    // Log incoming request headers
+    console.log('Incoming Headers:', req.headers);
+    
+    // Log incoming request body
+    console.log('Incoming Request Body:', req.body);
+
     const { event, payload } = req.body;
 
     // Handle Zoom Webhook validation
     if (event === 'endpoint.url_validation' && payload?.plainToken) {
-        
-        console.log('Received URL validation request:', {
+        console.log('URL validation request received:', {
             event,
             plainToken: payload.plainToken
         });
@@ -57,92 +63,138 @@ app.post('/', (req, res) => {
     }
 
     // Handle RTMS start event
-    if (payload?.event === 'meeting.rtms.started' && payload?.payload?.object) {
-        console.log('Received RTMS start event. Full request body:', JSON.stringify(req.body, null, 2));
+    if (event === 'meeting.rtms.started') {
+        console.log('RTMS Start Event received');
+        console.log('Full request body:', JSON.stringify(req.body, null, 2));
         
-        const {
-            clientId,
-            payload: {
-                payload: {
-                    object: { meeting_uuid, rtms_stream_id, server_urls }
-                }
-            }
-        } = req.body;
-
-        console.log('Extracted RTMS details:', {
-            clientId,
+        const { meeting_uuid, rtms_stream_id, server_urls } = payload;
+        
+        console.log('Extracted connection details:', {
             meeting_uuid,
             rtms_stream_id,
             server_urls
         });
+        
+        console.log('Opening signaling connections...');
+        connectToRTMSWebSocket(CLIENT_ID, meeting_uuid, rtms_stream_id, server_urls);
 
-        connectToRTMSWebSocket(clientId, meeting_uuid, rtms_stream_id, server_urls);
+        console.log('Sending data through websockets...');
     }
 
     res.sendStatus(200);
 });
 
 /**
- * Connects to the RTMS signaling WebSocket server
- * 
- * @param {string} clientId - The client ID
- * @param {string} meetingUuid - The meeting UUID
- * @param {string} streamId - The RTMS stream ID
- * @param {string} serverUrl - WebSocket URL for signaling server
+ * Connects to the RTMS WebSocket server
  */
-function connectToRTMSWebSocket(clientId, meetingUuid, streamId, serverUrl) {
-    const connectionId = `${meetingUuid}_${streamId}`;
+function connectToRTMSWebSocket(clientId, meetingUuid, streamId, serverUrls) {
+    console.log('Connection Parameters:', {
+        clientId,
+        meetingUuid,
+        streamId,
+        serverUrls
+    });
+
+    const connectionId = `${meetingUuid}_${streamId}_signaling`;
     
     // Close existing connection if any
     if (activeConnections.has(connectionId)) {
+        console.log('Closing existing connection for:', connectionId);
         activeConnections.get(connectionId).close();
         activeConnections.delete(connectionId);
     }
 
-    const ws = new WebSocket(serverUrl, { rejectUnauthorized: false });
-    activeConnections.set(connectionId, ws);
+    try {
+        console.log('Creating new WebSocket connection to:', serverUrls);
+        const ws = new WebSocket(serverUrls, { rejectUnauthorized: false });
+        activeConnections.set(connectionId, ws);
 
-    ws.on("open", () => {
-        const signature = generateSignature(clientId, meetingUuid, streamId, CLIENT_SECRET);
-        const handshakeMessage = {
-            msg_type: "SIGNALING_HAND_SHAKE_REQ",
-            protocol_version: 1,
-            meeting_uuid: meetingUuid,
-            rtms_stream_id: streamId,
-            signature: signature
-        };
-        ws.send(JSON.stringify(handshakeMessage));
-    });
-
-    ws.on("message", (data) => {
-        const message = JSON.parse(data);
+        // Keep track of last keep-alive response
+        let lastKeepAliveResponse = Date.now();
         
-        // Handle different message types
-        switch (message.msg_type) {
-            case "SIGNALING_HAND_SHAKE_RESP":
-                if (message.status_code === "STATUS_OK") {
-                    const mediaServerUrl = message.media_server.server_urls.all;
-                    connectToMediaWebSocket(mediaServerUrl, clientId, meetingUuid, streamId);
-                }
-                break;
-            case "STREAM_STATE_UPDATE":
-                if (message.state === "TERMINATED") {
-                    ws.close();
-                    activeConnections.delete(connectionId);
-                }
-                break;
-            case "KEEP_ALIVE_REQ":
-                ws.send(JSON.stringify({
-                    msg_type: "KEEP_ALIVE_RESP",
-                    timestamp: Date.now()
-                }));
-                break;
-        }
-    });
+        // Set up keep-alive check interval
+        const keepAliveInterval = setInterval(() => {
+            console.log('Checking keep-alive status...', {
+                lastResponse: new Date(lastKeepAliveResponse).toISOString(),
+                timeSinceLastResponse: Date.now() - lastKeepAliveResponse
+            });
+            
+            if (Date.now() - lastKeepAliveResponse > 30000) {
+                console.log('Keep-alive timeout detected, closing connection');
+                clearInterval(keepAliveInterval);
+                ws.close();
+                activeConnections.delete(connectionId);
+            }
+        }, 10000);
 
-    ws.on("close", () => {
-        activeConnections.delete(connectionId);
-    });
+        ws.on("open", () => {
+            console.log('WebSocket connection established successfully');
+            const signature = generateSignature(clientId, meetingUuid, streamId, CLIENT_SECRET);
+            const handshakeMessage = {
+                msg_type: "SIGNALING_HAND_SHAKE_REQ",
+                protocol_version: 1,
+                meeting_uuid: meetingUuid,
+                rtms_stream_id: streamId,
+                signature: signature
+            };
+            console.log('Sending handshake message:', handshakeMessage);
+            ws.send(JSON.stringify(handshakeMessage));
+        });
+
+        ws.on("message", (data) => {
+            console.log('Raw message:', data.toString());
+            const message = JSON.parse(data);
+            console.log('Parsed message:', message);
+            
+            switch (message.msg_type) {
+                case "SIGNALING_HAND_SHAKE_RESP":
+                    console.log('Handshake response received:', message);
+                    if (message.status_code === "STATUS_OK") {
+                        const mediaServerUrl = message.media_server.server_urls.all;
+                        console.log('Connecting to media server at:', mediaServerUrl);
+                        connectToMediaWebSocket(mediaServerUrl, clientId, meetingUuid, streamId);
+                    } else {
+                        console.error('Handshake failed:', message);
+                    }
+                    break;
+                case "KEEP_ALIVE_REQ":
+                    console.log('Received keep-alive request');
+                    lastKeepAliveResponse = Date.now();
+                    const keepAliveResponse = {
+                        msg_type: "KEEP_ALIVE_RESP",
+                        timestamp: Date.now()
+                    };
+                    console.log('Sending keep-alive response:', keepAliveResponse);
+                    ws.send(JSON.stringify(keepAliveResponse));
+                    break;
+                case "STREAM_STATE_UPDATE":
+                    console.log('Stream state update received:', message);
+                    if (message.state === "TERMINATED") {
+                        console.log('Stream terminated, closing connection');
+                        clearInterval(keepAliveInterval);
+                        ws.close();
+                        activeConnections.delete(connectionId);
+                    }
+                    break;
+                default:
+                    console.log('Unhandled message type:', message.msg_type);
+            }
+        });
+
+        ws.on("close", () => {
+            console.log('WebSocket connection closed for:', connectionId);
+            clearInterval(keepAliveInterval);
+            activeConnections.delete(connectionId);
+        });
+
+        ws.on("error", (error) => {
+            console.error('WebSocket connection error:', error);
+            clearInterval(keepAliveInterval);
+        });
+
+    } catch (error) {
+        console.error('Error establishing WebSocket connection:', error);
+    }
 }
 
 /**
