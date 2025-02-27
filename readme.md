@@ -133,15 +133,13 @@ When the webhook is validated and the meeting starts, you'll receive a `meeting.
 
 ```json
 {
-  "event": "meeting.rtms.started",
-  "payload": {
-    "operator_id": "user123",
-    "object": {
-      "meeting_uuid": "uuid",
-      "rtms_stream_id": "stream_id",
-      "server_urls": "server_urls"
+    "event": "meeting.rtms.started",
+    "event_ts": 1732313171881,
+    "payload": {
+        "meeting_uuid": "uuid",
+        "rtms_stream_id": "streamid",
+        "server_urls": "server_url"
     }
-  }
 }
 ```
 

@@ -173,7 +173,7 @@ class WebSocketHandler {
                         content: {
                             user_id: 0,
                             data: processedData,
-                            metadata: metadata,
+                           // metadata: metadata,
                             timestamp: Date.now()
                         }
                     }));
