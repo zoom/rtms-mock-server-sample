@@ -78,7 +78,7 @@ app.post('/', (req, res) => {
         console.log('Opening signaling connections...');
         connectToRTMSWebSocket(CLIENT_ID, meeting_uuid, rtms_stream_id, server_urls);
 
-        console.log('Sending data through websockets...');
+        console.log('Sending data through websockets..');
     }
 
     res.sendStatus(200);
