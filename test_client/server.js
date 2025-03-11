@@ -150,7 +150,7 @@ function connectToRTMSWebSocket(clientId, meetingUuid, streamId, serverUrls) {
                 case "SIGNALING_HAND_SHAKE_RESP":
                     console.log('Handshake response received:', message);
                     if (message.status_code === "STATUS_OK") {
-                        const mediaServerUrl = message.media_server.server_urls.all;
+                        const mediaServerUrl = message.media_server.server_urls.video;
                         console.log('Connecting to media server at:', mediaServerUrl);
                         connectToMediaWebSocket(mediaServerUrl, clientId, meetingUuid, streamId);
                     } else {

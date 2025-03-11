@@ -86,10 +86,10 @@ class SignalingHandler {
             const response = {
                 media_server: {
                     server_urls: {
-                        audio: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.AUDIO}`,
-                        video: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.VIDEO}`,
-                        transcript: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.TRANSCRIPT}`,
-                        all: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.ALL}`,
+                        audio: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.AUDIO}`,
+                        video: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.VIDEO}`,
+                        transcript: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.TRANSCRIPT}`,
+                        all: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.ALL}`,
                     },
                     srtp_keys: this.generateSRTPKeys(),
                 }

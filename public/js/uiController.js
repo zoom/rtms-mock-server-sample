@@ -63,6 +63,16 @@ class UIController {
                 RTMSState.audioRecorder.pause();
             }
             
+            // Pause speech recognition by stopping it
+            if (RTMSState.recognition) {
+                try {
+                    console.log("Stopping speech recognition for pause");
+                    RTMSState.recognition.stop();
+                } catch (error) {
+                    console.log("Error stopping speech recognition:", error);
+                }
+            }
+            
             WebSocketHandler.sendSessionStateUpdate(CONFIG.STATES.PAUSED, "ACTION_BY_USER");
             
             document.getElementById('resumeBtn').disabled = false;
