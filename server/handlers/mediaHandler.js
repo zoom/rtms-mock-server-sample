@@ -2,6 +2,7 @@ const WebSocket = require("ws");
 const WebSocketUtils = require('../utils/wsUtils');
 const CONFIG = require('../config/serverConfig');
 const SignalingHandler = require('./signalingHandler');
+const MESSAGE_TYPES = require('../constants/messageTypes');
 
 class MediaHandler {
     static setupMediaServer(httpServer) {
@@ -40,18 +41,18 @@ class MediaHandler {
             const message = JSON.parse(data);
             
             // Handle debug logs
-            if (message.msg_type === "DEBUG_LOG") {
+            if (message.msg_type === MESSAGE_TYPES.RTMS_MESSAGE_TYPE.EVENT_UPDATE) {
                 console.log("DEBUG:", message.content.message);
                 return;
             }
 
             console.log("Received message on media channel:", message.msg_type);
 
-            if (message.msg_type === "MEDIA_DATA_AUDIO") {
+            if (message.msg_type === MESSAGE_TYPES.RTMS_MESSAGE_TYPE.MEDIA_DATA_AUDIO) {
                 console.log("Received audio data, length:", message.content.data.length);
             }
 
-            if (message.msg_type === "SESSION_STATE_UPDATE" && 
+            if (message.msg_type === MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE && 
                 global.signalingWebsocket?.readyState === WebSocket.OPEN) {
                 this.handleSessionStateUpdate(message);
             }
@@ -65,20 +66,23 @@ class MediaHandler {
     }
 
     static isMediaDataMessage(message) {
-        return ["MEDIA_DATA_VIDEO", "MEDIA_DATA_AUDIO", "MEDIA_DATA_TRANSCRIPT"]
-            .includes(message.msg_type);
+        return [
+            MESSAGE_TYPES.RTMS_MESSAGE_TYPE.MEDIA_DATA_VIDEO,
+            MESSAGE_TYPES.RTMS_MESSAGE_TYPE.MEDIA_DATA_AUDIO,
+            MESSAGE_TYPES.RTMS_MESSAGE_TYPE.MEDIA_DATA_TRANSCRIPT
+        ].includes(message.msg_type);
     }
 
     static handleSessionStateUpdate(message) {
         global.signalingWebsocket.send(JSON.stringify({
-            msg_type: "SESSION_STATE_UPDATE",
+            msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE,
             session_id: message.rmts_session_id,
             state: message.state,
             stop_reason: message.stop_reason,
             timestamp: Date.now()
         }));
 
-        if (message.state === "STOPPED") {
+        if (message.state === MESSAGE_TYPES.RTMS_SESSION_STATE.STOPPED) {
             this.handleSessionStop();
         }
     }
@@ -91,8 +95,8 @@ class MediaHandler {
             global.mediaServer.clients.forEach(client => {
                 if (client.readyState === WebSocket.OPEN) {
                     client.send(JSON.stringify({
-                        msg_type: "STREAM_STATE_UPDATE",
-                        state: "TERMINATED",
+                        msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.STREAM_STATE_UPDATE,
+                        state: MESSAGE_TYPES.RTMS_STREAM_STATE.TERMINATED,
                         reason: stopReason,
                         timestamp: Date.now()
                     }));
@@ -121,9 +125,9 @@ class MediaHandler {
 
     static shouldSendToClient(clientPath, messageType) {
         return clientPath === 'all' ||
-            (clientPath === 'audio' && messageType === 'MEDIA_DATA_AUDIO') ||
-            (clientPath === 'video' && messageType === 'MEDIA_DATA_VIDEO') ||
-            (clientPath === 'transcript' && messageType === 'MEDIA_DATA_TRANSCRIPT');
+            (clientPath === 'audio' && messageType === MESSAGE_TYPES.RTMS_MESSAGE_TYPE.MEDIA_DATA_AUDIO) ||
+            (clientPath === 'video' && messageType === MESSAGE_TYPES.RTMS_MESSAGE_TYPE.MEDIA_DATA_VIDEO) ||
+            (clientPath === 'transcript' && messageType === MESSAGE_TYPES.RTMS_MESSAGE_TYPE.MEDIA_DATA_TRANSCRIPT);
     }
 
     static handleMediaClose(ws) {
@@ -150,9 +154,9 @@ class MediaHandler {
             global.mediaServer.clients.forEach(client => {
                 try {
                     client.send(JSON.stringify({
-                        msg_type: "STREAM_STATE_UPDATE",
+                        msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.STREAM_STATE_UPDATE,
                         rtms_stream_id: client.rtmsStreamId,
-                        state: "TERMINATED",
+                        state: MESSAGE_TYPES.RTMS_STREAM_STATE.TERMINATED,
                         reason: stopReason,
                         timestamp: Date.now()
                     }));

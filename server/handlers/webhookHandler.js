@@ -6,36 +6,7 @@ const cors = require('cors');
 const https = require('https');
 const fetch = require('node-fetch');
 const CredentialsManager = require('../utils/credentialsManager');
-
-// Load credentials for client ID and other values
-const credentials = CredentialsManager.loadCredentials();
-
-// Common webhook headers
-const WEBHOOK_HEADERS = {
-    'User-Agent': 'Zoom Marketplace/1.0a',
-    'Content-Type': 'application/json; charset=utf-8',
-    'clientid': credentials.auth_credentials[0].client_id,
-    'authorization': `Bearer ${credentials.auth_credentials[0].client_secret}`,
-};
-
-// Function to generate Zoom webhook headers with dynamic values
-const generateWebhookHeaders = (body) => {
-    const timestamp = Date.now();
-    const message = `v0:${timestamp}:${JSON.stringify(body)}`;
-    const hashForValidate = crypto
-        .createHmac('sha256', credentials.webhookToken)
-        .update(message)
-        .digest('hex');
-    const signature = `v0=${hashForValidate}`;
-
-    return {
-        ...WEBHOOK_HEADERS,
-        'x-zm-signature': signature,
-        'x-zm-request-timestamp': timestamp,
-        'x-zm-trackingid': crypto.randomBytes(16).toString('hex'),
-        'Content-Length': Buffer.byteLength(JSON.stringify(body))
-    };
-};
+const MESSAGE_TYPES = require('../constants/messageTypes');
 
 const router = express.Router();
 
@@ -52,22 +23,23 @@ const httpsAgent = new https.Agent({
 router.post("/validate-webhook", async (req, res) => {
     console.log("Received validation request for webhook URL:", req.body.webhookUrl);
     const { webhookUrl } = req.body;
+    const credentials = CredentialsManager.loadCredentials();
     const plainToken = crypto.randomBytes(16).toString("base64");
-
-    const validationBody = {
-        event: "endpoint.url_validation",
-        payload: {
-            plainToken: plainToken,
-        },
-        event_ts: Date.now(),
-    };
 
     try {
         console.log("Attempting to validate webhook at URL:", webhookUrl);
         const validationResponse = await fetch(webhookUrl, {
             method: "POST",
-            headers: generateWebhookHeaders(validationBody),
-            body: JSON.stringify(validationBody),
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                event: "endpoint.url_validation",
+                payload: {
+                    plainToken: plainToken,
+                },
+                event_ts: Date.now(),
+            }),
             agent: httpsAgent,
             timeout: 5000
         });
@@ -120,21 +92,74 @@ router.post("/send-webhook", async (req, res) => {
             const meetingInfo = getRandomEntry(credentials.stream_meeting_info);
 
             payload = {
-                event: "meeting.rtms.started",
+                event: "meeting.rtms_started",
                 event_ts: Date.now(),
                 payload: {
                     meeting_uuid: meetingInfo.meeting_uuid,
+                    operator_id: credential.userID,
                     rtms_stream_id: meetingInfo.rtms_stream_id,
                     server_urls: "ws://0.0.0.0:9092"
                 }
             };
         } else {
+            // Use existing payload for RTMS restart
             payload = existingPayload;
         }
 
         const response = await fetch(webhookUrl, {
             method: "POST",
-            headers: generateWebhookHeaders(payload),
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+            agent: httpsAgent,
+            timeout: 5000
+        });
+
+        let responseData;
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            responseData = await response.json();
+        } else {
+            responseData = await response.text();
+        }
+
+        res.json({
+            success: response.ok,
+            status: response.status,
+            sent: payload,
+            response: responseData,
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: error.message,
+            details: error.cause ? error.cause.message : 'No additional details',
+            attempted_payload: payload,
+        });
+    }
+});
+
+// Add new endpoint for stopping RTMS
+router.post("/stop-rtms", async (req, res) => {
+    const { webhookUrl, meetingInfo } = req.body;
+    
+    try {
+        const payload = {
+            event: "meeting.rtms_stopped",
+            event_ts: Date.now(),
+            payload: {
+                meeting_uuid: meetingInfo.meeting_uuid,
+                rtms_stream_id: meetingInfo.rtms_stream_id,
+                stop_reason: MESSAGE_TYPES.RTMS_STOP_REASON.STOP_BC_MEETING_ENDED
+            }
+        };
+
+        const response = await fetch(webhookUrl, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
             body: JSON.stringify(payload),
             agent: httpsAgent,
             timeout: 5000

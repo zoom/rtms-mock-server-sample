@@ -2,6 +2,7 @@ const WebSocketUtils = require('../utils/wsUtils');
 const CredentialsManager = require('../utils/credentialsManager');
 const CONFIG = require('../config/serverConfig');
 const crypto = require('crypto');
+const MESSAGE_TYPES = require('../constants/messageTypes');
 
 class SignalingHandler {
     static STOP_REASONS = [
@@ -28,16 +29,16 @@ class SignalingHandler {
             this.emitSignalingLog('Received', message.msg_type, message);
             
             switch (message.msg_type) {
-                case "SIGNALING_HAND_SHAKE_REQ":
+                case MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_REQ:
                     this.handleHandshake(ws, message);
                     break;
-                case "EVENT_SUBSCRIPTION":
+                case MESSAGE_TYPES.RTMS_MESSAGE_TYPE.EVENT_SUBSCRIPTION:
                     this.handleEventSubscription(ws, message);
                     break;
-                case "SESSION_STATE_UPDATE":
+                case MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE:
                     this.handleSessionStateUpdate(ws, message);
                     break;
-                case "KEEP_ALIVE_RESP":
+                case MESSAGE_TYPES.RTMS_MESSAGE_TYPE.KEEP_ALIVE_RESP:
                     this.handleKeepAliveResponse(ws, message);
                     break;
                 default:
@@ -78,7 +79,7 @@ class SignalingHandler {
                     }
                 } catch (initError) {
                     this.emitSignalingLog('Error', 'Media Server Initialization Failed', { error: initError.message });
-                    WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_ERROR", "Failed to initialize media server");
+                    WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_ERROR, "Failed to initialize media server");
                     return;
                 }
             }
@@ -86,10 +87,10 @@ class SignalingHandler {
             const response = {
                 media_server: {
                     server_urls: {
-                        audio: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.AUDIO}`,
-                        video: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.VIDEO}`,
-                        transcript: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.TRANSCRIPT}`,
-                        all: `ws://${CONFIG.HOST}:${CONFIG.HANDSHAKE_PORT}${CONFIG.ENDPOINTS.ALL}`,
+                        audio: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.AUDIO}`,
+                        video: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.VIDEO}`,
+                        transcript: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.TRANSCRIPT}`,
+                        all: `ws://${CONFIG.HOST}:${CONFIG.MEDIA_PORT}${CONFIG.ENDPOINTS.ALL}`,
                     },
                     srtp_keys: this.generateSRTPKeys(),
                 }
@@ -108,35 +109,35 @@ class SignalingHandler {
                     return;
                 }
                 ws.isAlive = false;
-                WebSocketUtils.sendWebSocketResponse(ws, "KEEP_ALIVE_REQ", "STATUS_OK");
+                WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.KEEP_ALIVE_REQ, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_OK);
             }, 30000);
 
             this.emitSignalingLog('Info', 'Sending Handshake Response', response);
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_OK", null, response);
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_OK, null, response);
         } catch (error) {
             this.emitSignalingLog('Error', 'Handshake Failed', { error: error.message });
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_ERROR", "Failed to initialize media server");
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_ERROR, "Failed to initialize media server");
         }
     }
 
     static validateHandshakeMessage(ws, message) {
         // Check protocol version
         if (message.protocol_version !== 1) {
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_INVALID_VERSION", "Unsupported protocol version");
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_INVALID_VERSION, "Unsupported protocol version");
             return false;
         }
 
         // Check required fields
         const { meeting_uuid, rtms_stream_id, signature } = message;
         if (!meeting_uuid || !rtms_stream_id || !signature) {
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_INVALID_MESSAGE", "Missing required fields");
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_INVALID_MESSAGE, "Missing required fields");
             return false;
         }
 
         // Load credentials
         const credentials = CredentialsManager.loadCredentials();
         if (!credentials) {
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_UNAUTHORIZED", "Failed to load credentials");
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_UNAUTHORIZED, "Failed to load credentials");
             return false;
         }
 
@@ -147,7 +148,7 @@ class SignalingHandler {
         );
 
         if (!streamInfo) {
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_UNAUTHORIZED", "Invalid meeting or stream ID");
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_UNAUTHORIZED, "Invalid meeting or stream ID");
             return false;
         }
 
@@ -163,7 +164,7 @@ class SignalingHandler {
         );
 
         if (!matchingCred) {
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_UNAUTHORIZED", "Invalid signature");
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_UNAUTHORIZED, "Invalid signature");
             return false;
         }
 
@@ -178,7 +179,7 @@ class SignalingHandler {
             .digest('hex');
         
         if (calculatedSignature !== signature) {
-            WebSocketUtils.sendWebSocketResponse(ws, "SIGNALING_HAND_SHAKE_RESP", "STATUS_INVALID_SIGNATURE");
+            WebSocketUtils.sendWebSocketResponse(ws, MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SIGNALING_HAND_SHAKE_RESP, MESSAGE_TYPES.RTMS_STATUS_CODE.STATUS_INVALID_SIGNATURE);
             return false;
         }
 
@@ -234,54 +235,72 @@ class SignalingHandler {
     }
 
     static handleSessionStateUpdate(ws, message) {
-        const { state, rtms_session_id } = message;
-        ws.sessionState = state;
+        const { rtms_session_id, state } = message;
+        let uiState;
+        let broadcastMessage;
 
-        let uiState = {};
-        let broadcastMessage = null;
-
-        // Log incoming state update
-        this.emitSignalingLog('Debug', 'Received Session State Update', {
-            incoming_state: state,
-            rtms_session_id,
-            timestamp: Date.now()
-        });
-
-        switch(state) {
-            case "RESUMED":
+        switch (state) {
+            case MESSAGE_TYPES.RTMS_SESSION_STATE.STARTED:
                 uiState = {
                     resumeBtn: { disabled: true },
                     pauseBtn: { disabled: false },
-                    sendBtn: { disabled: true },
+                    sendBtn: { disabled: false },
                     stopBtn: { disabled: false },
                     startRtmsBtn: { disabled: true },
                     endBtn: { disabled: false }
                 };
 
-                // Log UI state for RESUMED
-                this.emitSignalingLog('Debug', 'Creating RESUMED UI State', {
-                    ui_state: uiState,
-                    timestamp: Date.now()
-                });
-
                 broadcastMessage = {
-                    msg_type: "SESSION_STATE_UPDATE",
+                    msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE,
                     rtms_session_id: rtms_session_id,
-                    state: "RESUMED",
+                    state: MESSAGE_TYPES.RTMS_SESSION_STATE.STARTED,
                     ui_state: uiState,
                     timestamp: Date.now()
                 };
 
-                // Log direct message send
+                this.emitSignalingLog('Info', 'Session State Update - Start', {
+                    state,
+                    rtms_session_id,
+                    ui_state: uiState
+                });
+
+                // Send to current client and broadcast
                 if (ws.readyState === 1) {
-                    this.emitSignalingLog('Debug', 'Sending Direct RESUMED Message', {
-                        message: broadcastMessage,
-                        timestamp: Date.now()
-                    });
-                    ws.send(JSON.stringify({
-                        ...broadcastMessage,
-                        is_direct: true
-                    }));
+                    ws.send(JSON.stringify(broadcastMessage));
+                }
+                
+                if (global.signalingWebsocket && global.signalingWebsocket.readyState === 1) {
+                    global.signalingWebsocket.send(JSON.stringify(broadcastMessage));
+                }
+                break;
+
+            case MESSAGE_TYPES.RTMS_SESSION_STATE.RESUMED:
+                uiState = {
+                    resumeBtn: { disabled: true },
+                    pauseBtn: { disabled: false },
+                    sendBtn: { disabled: false },
+                    stopBtn: { disabled: false },
+                    startRtmsBtn: { disabled: true },
+                    endBtn: { disabled: false }
+                };
+
+                broadcastMessage = {
+                    msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE,
+                    rtms_session_id: rtms_session_id,
+                    state: MESSAGE_TYPES.RTMS_SESSION_STATE.RESUMED,
+                    ui_state: uiState,
+                    timestamp: Date.now()
+                };
+
+                this.emitSignalingLog('Info', 'Session State Update - Resume', {
+                    state,
+                    rtms_session_id,
+                    ui_state: uiState
+                });
+
+                // Send to current client and broadcast
+                if (ws.readyState === 1) {
+                    ws.send(JSON.stringify(broadcastMessage));
                 }
 
                 // Log broadcast message send
@@ -295,10 +314,9 @@ class SignalingHandler {
                         is_broadcast: true
                     }));
                 }
-
                 break;
 
-            case "PAUSED":
+            case MESSAGE_TYPES.RTMS_SESSION_STATE.PAUSED:
                 uiState = {
                     resumeBtn: { disabled: false },
                     pauseBtn: { disabled: true },
@@ -309,9 +327,9 @@ class SignalingHandler {
                 };
 
                 broadcastMessage = {
-                    msg_type: "SESSION_STATE_UPDATE",
+                    msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE,
                     rtms_session_id: rtms_session_id,
-                    state: "PAUSED",
+                    state: MESSAGE_TYPES.RTMS_SESSION_STATE.PAUSED,
                     ui_state: uiState,
                     timestamp: Date.now()
                 };
@@ -332,7 +350,7 @@ class SignalingHandler {
                 }
                 break;
 
-            case "STOPPED":
+            case MESSAGE_TYPES.RTMS_SESSION_STATE.STOPPED:
                 const stopReason = this.getRandomStopReason();
                 uiState = {
                     resumeBtn: { disabled: true },
@@ -353,17 +371,17 @@ class SignalingHandler {
                 // Send stream termination message
                 if (ws.readyState === 1) {
                     ws.send(JSON.stringify({
-                        msg_type: "STREAM_STATE_UPDATE",
-                        state: "TERMINATED",
+                        msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.STREAM_STATE_UPDATE,
+                        state: MESSAGE_TYPES.RTMS_STREAM_STATE.TERMINATED,
                         reason: stopReason,
                         timestamp: Date.now()
                     }));
                 }
 
                 broadcastMessage = {
-                    msg_type: "SESSION_STATE_UPDATE",
+                    msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE,
                     rtms_session_id: rtms_session_id,
-                    state: "STOPPED",
+                    state: MESSAGE_TYPES.RTMS_SESSION_STATE.STOPPED,
                     ui_state: uiState,
                     timestamp: Date.now()
                 };
@@ -377,7 +395,6 @@ class SignalingHandler {
                 if (global.signalingWebsocket && global.signalingWebsocket.readyState === 1) {
                     global.signalingWebsocket.send(JSON.stringify(broadcastMessage));
                 }
-
                 break;
         }
 
@@ -403,7 +420,7 @@ class SignalingHandler {
         }
 
         const stateMessage = {
-            msg_type: "SESSION_STATE_UPDATE",
+            msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.SESSION_STATE_UPDATE,
             rtms_session_id: sessionId,
             state: state,
             ui_state: uiState,
@@ -430,7 +447,7 @@ class SignalingHandler {
             global.logsWss.clients.forEach(client => {
                 if (client.readyState === 1 && client.isLogsConnection) { // WebSocket.OPEN
                     client.send(JSON.stringify({
-                        msg_type: 'SIGNALING_LOG',
+                        msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.EVENT_UPDATE,
                         content: {
                             status,
                             event,

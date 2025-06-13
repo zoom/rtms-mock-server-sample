@@ -2,6 +2,7 @@ const WebSocket = require("ws");
 const WebSocketUtils = require('../utils/wsUtils');
 const SignalingHandler = require('./signalingHandler');
 const MediaHandler = require('./mediaHandler');
+const MESSAGE_TYPES = require('../constants/messageTypes');
 
 class WSHandler {
     static setupWebSocketServer(server) {
@@ -43,7 +44,7 @@ class WSHandler {
 
                 ws.isAlive = false;
                 ws.send(JSON.stringify({
-                    msg_type: "KEEP_ALIVE_REQ",
+                    msg_type: MESSAGE_TYPES.RTMS_MESSAGE_TYPE.KEEP_ALIVE_REQ,
                     timestamp: Date.now()
                 }));
             });
@@ -87,11 +88,8 @@ class WSHandler {
         }
     }
 
-    static isMediaPath(url) {
-        return url.startsWith("/audio") ||
-               url.startsWith("/video") ||
-               url.startsWith("/transcript") ||
-               url.startsWith("/all");
+    static isMediaPath(path) {
+        return path === "/audio" || path === "/video" || path === "/transcript" || path === "/all";
     }
 
     static handleConnection(ws) {

@@ -15,13 +15,11 @@ class MediaHandler {
             UIController.addSignalingLog('Media Stream Acquired');
             await this.setupVideoDisplay();
             await this.setupMediaRecorders();
+            await this.setupSpeechRecognition();
             
             // Reset streaming state
             RTMSState.isStreamingEnabled = true;
             RTMSState.sessionState = CONFIG.STATES.ACTIVE;
-            
-            // Setup speech recognition after everything else
-            await this.setupSpeechRecognition();
             
             await WebSocketHandler.setupWebSocket(serverUrl);
 
@@ -78,10 +76,16 @@ class MediaHandler {
             RTMSState.videoRecorder = new MediaRecorder(videoStream, videoConfig);
             RTMSState.audioRecorder = new MediaRecorder(audioStream, audioConfig);
 
+            // Add error event listeners
+            RTMSState.videoRecorder.onerror = (e) => logDebug(`Video recorder error: ${e.name}`);
+            RTMSState.audioRecorder.onerror = (e) => logDebug(`Audio recorder error: ${e.name}`);
+
             logDebug(`Audio recorder state: ${RTMSState.audioRecorder.state}`);
             logDebug(`Audio recorder mimeType: ${RTMSState.audioRecorder.mimeType}`);
 
             this.setupRecorderEventHandlers();
+        } else {
+            console.warn('Attempted to set up MediaRecorders while one is already active.');
         }
     }
 
@@ -123,7 +127,6 @@ class MediaHandler {
         RTMSState.audioRecorder.onpause = () => logDebug('Audio recorder paused');
         RTMSState.audioRecorder.onresume = () => logDebug('Audio recorder resumed');
         RTMSState.audioRecorder.onstop = () => logDebug('Audio recorder stopped');
-        RTMSState.audioRecorder.onerror = (e) => logDebug(`Audio recorder error: ${e.name}`);
     }
 
     static startRecording() {
@@ -168,124 +171,38 @@ class MediaHandler {
 
     static async setupSpeechRecognition() {
         if ('webkitSpeechRecognition' in window) {
-            // If we already have a recognition instance, stop it first
-            if (RTMSState.recognition) {
-                try {
-                    RTMSState.recognition.stop();
-                } catch (e) {
-                    console.log("Error stopping previous recognition:", e);
-                }
-            }
-
             RTMSState.recognition = new webkitSpeechRecognition();
             RTMSState.recognition.continuous = true;
             RTMSState.recognition.interimResults = true;
             RTMSState.recognition.lang = 'en-US';
 
-            // Track the current transcript
-            let currentTranscript = '';
-
             RTMSState.recognition.onresult = (event) => {
-                let interimTranscript = '';
-                let finalTranscript = '';
-                
+                let transcript = '';
                 for (let i = event.resultIndex; i < event.results.length; ++i) {
-                    const transcript = event.results[i][0].transcript;
                     if (event.results[i].isFinal) {
-                        finalTranscript += transcript;
-                    } else {
-                        interimTranscript += transcript;
+                        transcript += event.results[i][0].transcript.replace(/'/g, '"');
                     }
                 }
                 
-                // Use final transcript if available, otherwise use interim
-                const transcriptToSend = finalTranscript || interimTranscript;
-                
-                if (transcriptToSend.trim() !== '') {
-                    // Update UI with the current transcript
-                    document.getElementById('transcript').innerText = transcriptToSend;
-                    
-                    // Send transcript through WebSocket
-                    if (RTMSState.mediaSocket?.readyState === WebSocket.OPEN && 
-                        RTMSState.isStreamingEnabled) {
-                        
-                        console.log("Sending transcript:", transcriptToSend);
-                        RTMSState.mediaSocket.send(JSON.stringify({
-                            msg_type: "MEDIA_DATA_TRANSCRIPT",
-                            content: {
-                                user_id: 0,
-                                data: transcriptToSend,
-                                timestamp: Date.now()
-                            }
-                        }));
-                        
-                        // Add to transcript history using the global function
-                        if (typeof window.addTranscript === 'function') {
-                            window.addTranscript(transcriptToSend);
+                // Update UI
+                document.getElementById('transcript').innerText = transcript;
+
+                // Send transcript through WebSocket
+                if (RTMSState.mediaSocket?.readyState === WebSocket.OPEN) {
+                    RTMSState.mediaSocket.send(JSON.stringify({
+                        msg_type: 17, // MEDIA_DATA_TRANSCRIPT
+                        content: {
+                            user_id: 0,
+                            data: transcript,
+                            timestamp: Date.now()
                         }
-                    }
+                    }));
                 }
             };
 
-            RTMSState.recognition.onstart = () => {
-                console.log("Speech recognition started");
-                if (typeof UIController.addSystemLog === 'function') {
-                    UIController.addSystemLog('Speech', 'Recognition started');
-                }
-            };
-
-            RTMSState.recognition.onerror = (event) => {
-                console.error("Speech recognition error:", event.error);
-                if (typeof UIController.addSystemLog === 'function') {
-                    UIController.addSystemLog('Speech', 'Recognition error', { error: event.error });
-                }
-                
-                // Restart recognition if it errors out, except for aborted
-                if (event.error !== 'aborted' && RTMSState.isStreamingEnabled) {
-                    setTimeout(() => {
-                        try {
-                            RTMSState.recognition.start();
-                        } catch (e) {
-                            console.log("Error restarting recognition:", e);
-                        }
-                    }, 1000);
-                }
-            };
-
-            RTMSState.recognition.onend = () => {
-                console.log("Speech recognition ended");
-                if (typeof UIController.addSystemLog === 'function') {
-                    UIController.addSystemLog('Speech', 'Recognition ended');
-                }
-                
-                // Restart recognition if it ends unexpectedly and streaming is still enabled
-                if (RTMSState.isStreamingEnabled && RTMSState.sessionState !== CONFIG.STATES.STOPPED) {
-                    console.log("Restarting speech recognition...");
-                    setTimeout(() => {
-                        try {
-                            RTMSState.recognition.start();
-                        } catch (e) {
-                            console.log("Error restarting recognition:", e);
-                        }
-                    }, 1000);
-                }
-            };
-
-            // Start recognition
-            try {
-                RTMSState.recognition.start();
-                console.log("Speech recognition initialized and started");
-            } catch (error) {
-                console.warn('Error starting speech recognition:', error);
-                if (typeof UIController.addSystemLog === 'function') {
-                    UIController.addSystemLog('Speech', 'Start error', { error: error.message });
-                }
-            }
+            RTMSState.recognition.start();
         } else {
             console.warn('Speech Recognition API not supported in this browser');
-            if (typeof UIController.addSystemLog === 'function') {
-                UIController.addSystemLog('Speech', 'Not supported in this browser');
-            }
         }
     }
 

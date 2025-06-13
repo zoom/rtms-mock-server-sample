@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const MESSAGE_TYPES = require('../constants/messageTypes');
 
 class WebSocketUtils {
     static sendWebSocketResponse(ws, msgType, statusCode, reason = null, additionalData = {}) {
